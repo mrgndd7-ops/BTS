@@ -94,18 +94,6 @@ export function useProfile() {
     }
   }
 
-  const isProfileComplete = () => {
-    if (!profile) return false
-    
-    return !!(
-      profile.full_name &&
-      profile.phone &&
-      profile.city &&
-      profile.district &&
-      profile.municipality_id
-    )
-  }
-
   const refreshProfile = async () => {
     if (!user) return
 
@@ -124,10 +112,19 @@ export function useProfile() {
     }
   }
 
+  // Profile completeness check
+  const isProfileComplete = !profile ? false : !!(
+    profile.full_name &&
+    profile.phone &&
+    profile.city &&
+    profile.district &&
+    profile.municipality_id
+  )
+
   return {
     profile,
     isLoading,
-    isProfileComplete: isProfileComplete(),
+    isProfileComplete,
     updateProfile,
     completeProfile,
     refreshProfile,

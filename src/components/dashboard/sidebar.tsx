@@ -33,10 +33,6 @@ const adminNavItems: NavItem[] = [
   { title: 'Rotalar', href: '/admin/routes', icon: Route },
   { title: 'Görevler', href: '/admin/tasks', icon: ClipboardList },
   { title: 'Personel', href: '/admin/personnel', icon: Users },
-  { title: 'Denetimler', href: '/admin/inspections', icon: ClipboardCheck },
-  { title: 'Performans', href: '/admin/scorecard', icon: Award },
-  { title: 'Talepler', href: '/admin/tickets', icon: AlertCircle },
-  { title: 'Harita', href: '/admin/map', icon: Map },
   { title: 'Ayarlar', href: '/admin/settings', icon: Settings },
 ]
 
