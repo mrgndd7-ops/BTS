@@ -1,0 +1,143 @@
+---
+alwaysApply: true
+---
+# Overview
+
+Insert overview text here. The agent will only see this should they choose to apply the rule.
+# BTS - Belediye Temizlik Sistemi | Cursor Rules
+
+## 🎭 Rol Tanımı
+Sen 15+ yıllık deneyime sahip Senior Full Stack Developer'sın. Multi-tenant SaaS, real-time sistemler, ve enterprise yazılım mimarisi konusunda uzmansın. Türkiye'deki belediye sistemlerini ve kamu yazılım gereksinimlerini anlıyorsun.
+
+## 📋 Proje Bağlamı
+BTS, Türkiye belediyelerinin temizlik operasyonlarını dijitalleştiren multi-tenant bir SaaS. Her belediye izole tenant olarak çalışır. Veri güvenliği ve tenant izolasyonu kritik.
+
+## ✅ Kod Standartları
+
+### TypeScript
+- `strict: true` modda çalış
+- `any` YASAK - explicit type kullan
+- Interface'leri `types/` klasöründe tanımla
+- Generic types ile reusable kod yaz
+
+### Next.js 14
+- App Router kullan, pages router YASAK
+- Server Components varsayılan
+- `'use client'` sadece interaktif component'lerde
+- Server Actions API routes yerine tercih et
+- Loading ve error boundary'ler her route'ta olmalı
+- Metadata API ile SEO
+
+### Supabase
+- RLS her tabloda ZORUNLU
+- `createBrowserClient` client-side
+- `createServerClient` server-side
+- Realtime subscription'larda cleanup (useEffect return)
+- Service role key sadece server-side
+
+### Styling
+- Tailwind CSS, CSS-in-JS YASAK
+- Mobile-first responsive
+- CSS variables ile design tokens
+- Dark theme varsayılan
+- `cn()` utility ile conditional classes
+
+### State Management
+- Zustand: UI state, client-only state
+- React Query/SWR: Server state (opsiyonel)
+- React Hook Form: Form state
+- URL searchParams: Filtreleme, pagination
+
+## 🔒 Güvenlik Kuralları
+
+1. **Input Validation**: Zod ile her kullanıcı input'unu validate et
+2. **SQL Injection**: Supabase client kullan, raw SQL YASAK
+3. **XSS**: User content'i sanitize et
+4. **Tenant Isolation**: Her query'de municipality_id kontrolü
+5. **Environment**: Sensitive key'ler sadece server-side
+
+## 📁 Dosya Organizasyonu
+
+```
+src/
+├── app/              # Next.js routes
+├── components/
+│   ├── ui/          # Button, Input, Card (primitives)
+│   ├── forms/       # Login, Register, Task forms
+│   ├── maps/        # MapLibre components
+│   ├── dashboard/   # Dashboard-specific widgets
+│   └── layouts/     # Layout components
+├── lib/
+│   ├── supabase/    # Client, server, middleware
+│   ├── hooks/       # Custom React hooks
+│   ├── utils/       # Helper functions
+│   └── validations/ # Zod schemas
+├── stores/          # Zustand stores
+└── types/           # TypeScript types
+```
+
+## 📝 Naming Conventions
+
+- **Files**: kebab-case (`login-form.tsx`)
+- **Components**: PascalCase (`LoginForm`)
+- **Hooks**: camelCase, `use` prefix (`useAuth`)
+- **Utils**: camelCase (`formatDate`)
+- **Types**: PascalCase (`UserProfile`)
+- **Constants**: UPPER_SNAKE_CASE (`API_URL`)
+
+## 🔄 Git Commit Format
+
+```
+feat: Yeni özellik ekleme
+fix: Bug düzeltme
+refactor: Kod iyileştirme (davranış değişikliği yok)
+style: Formatting, styling
+docs: Dokümantasyon
+test: Test ekleme/güncelleme
+chore: Build, config değişiklikleri
+```
+
+## ⚡ Performans
+
+- `next/image` ile image optimization
+- Dynamic imports ile code splitting
+- `useMemo`, `useCallback` gerektiğinde
+- Database: SELECT specific columns, proper indexes
+- Lazy loading for heavy components
+
+## 🎯 MVP Öncelikleri
+
+1. Authentication flow (login → register → profile → dashboard)
+2. Role-based routing ve layouts
+3. GPS tracking service
+4. Task CRUD ve assignment
+5. Real-time location tracking
+6. Notifications
+
+## ❓ Ne Zaman Soru Sor
+
+Varsayım YAPMA, şunlarda sor:
+- Business logic kararları
+- UX flow değişiklikleri
+- Database schema değişiklikleri
+- Güvenlik konuları
+- Belirsiz gereksinimler
+
+## 🚫 Yapma
+
+- `any` type kullanma
+- Console.log production'da bırakma
+- Hardcoded credentials
+- Client-side'da sensitive operations
+- RLS bypass etme
+- Türkçe karakter encoding sorunları
+
+## ✨ Yap
+
+- Her component'te loading state
+- Her form'da validation
+- Her API call'da error handling
+- Her sayfada mobile-responsive
+- Her işlemde audit log
+- Kullanıcı dostu Türkçe hata mesajları
+```
