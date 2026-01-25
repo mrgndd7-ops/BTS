@@ -48,20 +48,33 @@ export function TaskAssignmentForm() {
   // Personel listesini yükle
   useEffect(() => {
     const loadPersonnel = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, department')
-        .eq('role', 'personnel')
-        .eq('status', 'active')
-        .order('full_name')
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, department')
+          .eq('role', 'personnel')
+          .eq('status', 'active')
+          .order('full_name')
 
-      if (data) {
-        setPersonnel(data)
+        if (error) {
+          console.error('Personnel loading error:', error)
+          setError('Personel listesi yüklenemedi: ' + error.message)
+          return
+        }
+
+        console.log('Personnel loaded:', data)
+        if (data) {
+          setPersonnel(data)
+        }
+      } catch (err) {
+        console.error('Personnel loading exception:', err)
       }
     }
 
-    loadPersonnel()
-  }, [supabase])
+    if (user) {
+      loadPersonnel()
+    }
+  }, [supabase, user])
 
   const onSubmit = async (data: TaskFormData) => {
     if (!user) return
@@ -72,51 +85,62 @@ export function TaskAssignmentForm() {
 
     try {
       // 1. Kullanıcının belediye ID'sini al
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('municipality_id')
         .eq('id', user.id)
         .single()
 
+      console.log('Profile data:', profile, 'Error:', profileError)
+
       if (!profile?.municipality_id) {
-        throw new Error('Belediye bilgisi bulunamadı')
+        throw new Error('Belediye bilgisi bulunamadı. Lütfen profil bilgilerinizi tamamlayın.')
       }
 
       // 2. Görev oluştur
+      const taskData = {
+        title: data.title,
+        description: data.description || null,
+        assigned_to: data.assigned_to,
+        route_id: data.route_id || null,
+        scheduled_start: data.scheduled_start || null,
+        status: 'assigned',
+        created_by: user.id,
+        municipality_id: profile.municipality_id,
+      }
+
+      console.log('Creating task with data:', taskData)
+
       const { data: newTask, error: taskError } = await supabase
         .from('tasks')
-        .insert([{
-          title: data.title,
-          description: data.description || null,
-          assigned_to: data.assigned_to,
-          route_id: data.route_id || null,
-          scheduled_start: data.scheduled_start || null,
-          status: 'assigned',
-          created_by: user.id,
-          municipality_id: profile.municipality_id,
-        }])
+        .insert([taskData])
         .select()
         .single()
 
-      if (taskError) throw taskError
+      console.log('Task creation result:', newTask, 'Error:', taskError)
 
-      // 3. Personele bildirim oluştur
-      const { data: assignedPerson } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.assigned_to)
-        .single()
+      if (taskError) {
+        console.error('Task error details:', taskError)
+        throw new Error(`Görev oluşturulamadı: ${taskError.message}`)
+      }
 
-      await supabase
-        .from('notifications')
-        .insert([{
-          user_id: data.assigned_to,
-          municipality_id: profile.municipality_id,
-          title: 'Yeni Görev Atandı',
-          body: `"${data.title}" görevine atandınız`,
-          type: 'task_assigned',
-          data: { task_id: newTask.id, task_title: data.title }
-        }])
+      // 3. Personele bildirim oluştur (hata olsa bile görev oluşturuldu sayılsın)
+      try {
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: data.assigned_to,
+            municipality_id: profile.municipality_id,
+            title: 'Yeni Görev Atandı',
+            body: `"${data.title}" görevine atandınız`,
+            type: 'task_assigned',
+            data: { task_id: newTask.id, task_title: data.title }
+          }])
+        console.log('Notification created successfully')
+      } catch (notifError) {
+        console.warn('Bildirim oluşturulamadı:', notifError)
+        // Bildirim hatası görev oluşturulmasını engellemez
+      }
 
       setSuccess(true)
       reset()
@@ -124,7 +148,8 @@ export function TaskAssignmentForm() {
       // 3 saniye sonra success mesajını kaldır
       setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Görev oluşturulamadı')
+      console.error('Task creation error:', err)
+      setError(err instanceof Error ? err.message : 'Görev oluşturulamadı. Lütfen tekrar deneyin.')
     } finally {
       setIsSubmitting(false)
     }
