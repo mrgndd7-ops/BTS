@@ -1,6 +1,6 @@
 /**
- * Supabase veritabanı type definitions
- * Bu dosya Supabase CLI ile generate edilebilir: supabase gen types typescript
+ * Supabase Database Types
+ * Simplified type definitions for tables
  */
 
 export type Json =
@@ -11,9 +11,121 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string
+          email: string | null
+          full_name: string | null
+          avatar_url: string | null
+          role: string
+          municipality_id: string | null
+          city: string | null
+          district: string | null
+          department: string | null
+          employee_id: string | null
+          phone: string | null
+          unit: string | null
+          status: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          email?: string | null
+          full_name?: string | null
+          avatar_url?: string | null
+          role: string
+          municipality_id?: string | null
+          city?: string | null
+          district?: string | null
+          department?: string | null
+          employee_id?: string | null
+          phone?: string | null
+          unit?: string | null
+          status?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: string
+          municipality_id?: string | null
+          city?: string | null
+          district?: string | null
+          department?: string | null
+          employee_id?: string | null
+          phone?: string | null
+          unit?: string | null
+          status?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      gps_locations: {
+        Row: {
+          id: string
+          user_id: string | null
+          task_id: string | null
+          municipality_id: string | null
+          latitude: number
+          longitude: number
+          speed: number | null
+          heading: number | null
+          altitude: number | null
+          accuracy: number | null
+          source: string | null
+          device_id: string | null
+          battery_level: number | null
+          traccar_position_id: number | null
+          recorded_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          task_id?: string | null
+          municipality_id?: string | null
+          latitude: number
+          longitude: number
+          speed?: number | null
+          heading?: number | null
+          altitude?: number | null
+          accuracy?: number | null
+          source?: string | null
+          device_id?: string | null
+          battery_level?: number | null
+          traccar_position_id?: number | null
+          recorded_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          task_id?: string | null
+          municipality_id?: string | null
+          latitude?: number
+          longitude?: number
+          speed?: number | null
+          heading?: number | null
+          altitude?: number | null
+          accuracy?: number | null
+          source?: string | null
+          device_id?: string | null
+          battery_level?: number | null
+          traccar_position_id?: number | null
+          recorded_at?: string
+          created_at?: string
+        }
+      }
       municipalities: {
         Row: {
           id: string
@@ -53,62 +165,6 @@ export interface Database {
           is_active?: boolean
           contact_person?: string | null
           created_at?: string
-        }
-      }
-      profiles: {
-        Row: {
-          id: string
-          email: string | null
-          full_name: string | null
-          avatar_url: string | null
-          role: 'admin' | 'supervisor' | 'personnel'
-          municipality_id: string | null
-          city: string | null
-          district: string | null
-          department: string | null
-          employee_id: string | null
-          phone: string | null
-          unit: string | null
-          status: string
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          email?: string | null
-          full_name?: string | null
-          avatar_url?: string | null
-          role: 'admin' | 'supervisor' | 'personnel'
-          municipality_id?: string | null
-          city?: string | null
-          district?: string | null
-          department?: string | null
-          employee_id?: string | null
-          phone?: string | null
-          unit?: string | null
-          status?: string
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          email?: string | null
-          full_name?: string | null
-          avatar_url?: string | null
-          role?: 'admin' | 'supervisor' | 'personnel'
-          municipality_id?: string | null
-          city?: string | null
-          district?: string | null
-          department?: string | null
-          employee_id?: string | null
-          phone?: string | null
-          unit?: string | null
-          status?: string
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
         }
       }
       routes: {
@@ -177,7 +233,7 @@ export interface Database {
           scheduled_start: string | null
           title: string
           description: string | null
-          status: 'assigned' | 'in_progress' | 'completed' | 'cancelled'
+          status: string
           assigned_vehicle: string | null
           scheduled_miles: number | null
           completed_miles: number | null
@@ -199,7 +255,7 @@ export interface Database {
           scheduled_start?: string | null
           title: string
           description?: string | null
-          status?: 'assigned' | 'in_progress' | 'completed' | 'cancelled'
+          status?: string
           assigned_vehicle?: string | null
           scheduled_miles?: number | null
           completed_miles?: number | null
@@ -221,7 +277,7 @@ export interface Database {
           scheduled_start?: string | null
           title?: string
           description?: string | null
-          status?: 'assigned' | 'in_progress' | 'completed' | 'cancelled'
+          status?: string
           assigned_vehicle?: string | null
           scheduled_miles?: number | null
           completed_miles?: number | null
@@ -233,59 +289,6 @@ export interface Database {
           completed_at?: string | null
           created_at?: string
           updated_at?: string
-        }
-      }
-      gps_locations: {
-        Row: {
-          id: string
-          user_id: string | null
-          task_id: string | null
-          latitude: number
-          longitude: number
-          accuracy: number | null
-          speed: number | null
-          heading: number | null
-          altitude: number | null
-          source: 'browser' | 'traccar' | 'hardware'
-          device_id: string | null
-          battery_level: number | null
-          traccar_position_id: number | null
-          recorded_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id?: string | null
-          task_id?: string | null
-          latitude: number
-          longitude: number
-          accuracy?: number | null
-          speed?: number | null
-          heading?: number | null
-          altitude?: number | null
-          source?: 'browser' | 'traccar' | 'hardware'
-          device_id?: string | null
-          battery_level?: number | null
-          traccar_position_id?: number | null
-          recorded_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string | null
-          task_id?: string | null
-          latitude?: number
-          longitude?: number
-          accuracy?: number | null
-          speed?: number | null
-          heading?: number | null
-          altitude?: number | null
-          source?: 'browser' | 'traccar' | 'hardware'
-          device_id?: string | null
-          battery_level?: number | null
-          traccar_position_id?: number | null
-          recorded_at?: string
-          created_at?: string
         }
       }
       gps_traces: {
@@ -322,7 +325,7 @@ export interface Database {
           id: string
           task_id: string | null
           inspector_id: string | null
-          grade: 'A' | 'B' | 'C' | 'D'
+          grade: string
           litter_count: number | null
           notes: string | null
           photos: Json | null
@@ -333,7 +336,7 @@ export interface Database {
           id?: string
           task_id?: string | null
           inspector_id?: string | null
-          grade: 'A' | 'B' | 'C' | 'D'
+          grade: string
           litter_count?: number | null
           notes?: string | null
           photos?: Json | null
@@ -344,7 +347,7 @@ export interface Database {
           id?: string
           task_id?: string | null
           inspector_id?: string | null
-          grade?: 'A' | 'B' | 'C' | 'D'
+          grade?: string
           litter_count?: number | null
           notes?: string | null
           photos?: Json | null
@@ -405,8 +408,8 @@ export interface Database {
           municipality_id: string | null
           title: string
           description: string | null
-          status: 'acik' | 'atandi' | 'kapali'
-          priority: 'dusuk' | 'orta' | 'yuksek' | 'acil'
+          status: string
+          priority: string
           reported_by_unit: string | null
           channel: string | null
           geo: Json | null
@@ -428,8 +431,8 @@ export interface Database {
           municipality_id?: string | null
           title: string
           description?: string | null
-          status?: 'acik' | 'atandi' | 'kapali'
-          priority?: 'dusuk' | 'orta' | 'yuksek' | 'acil'
+          status?: string
+          priority?: string
           reported_by_unit?: string | null
           channel?: string | null
           geo?: Json | null
@@ -451,8 +454,8 @@ export interface Database {
           municipality_id?: string | null
           title?: string
           description?: string | null
-          status?: 'acik' | 'atandi' | 'kapali'
-          priority?: 'dusuk' | 'orta' | 'yuksek' | 'acil'
+          status?: string
+          priority?: string
           reported_by_unit?: string | null
           channel?: string | null
           geo?: Json | null
@@ -477,7 +480,7 @@ export interface Database {
           municipality_id: string
           title: string
           body: string | null
-          type: 'task_assigned' | 'task_reminder' | 'inspection_result' | 'system' | 'ticket_update'
+          type: string
           data: Json
           is_read: boolean
           read_at: string | null
@@ -489,7 +492,7 @@ export interface Database {
           municipality_id: string
           title: string
           body?: string | null
-          type: 'task_assigned' | 'task_reminder' | 'inspection_result' | 'system' | 'ticket_update'
+          type: string
           data?: Json
           is_read?: boolean
           read_at?: string | null
@@ -501,7 +504,7 @@ export interface Database {
           municipality_id?: string
           title?: string
           body?: string | null
-          type?: 'task_assigned' | 'task_reminder' | 'inspection_result' | 'system' | 'ticket_update'
+          type?: string
           data?: Json
           is_read?: boolean
           read_at?: string | null
