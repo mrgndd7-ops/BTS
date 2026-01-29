@@ -41,6 +41,7 @@ export default function DevicesPage() {
   useEffect(() => {
     loadUnmappedDevices()
     loadProfiles()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadUnmappedDevices = async () => {
@@ -381,7 +382,7 @@ export default function DevicesPage() {
             <div className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold flex-shrink-0">2</div>
               <div>
-                <strong className="text-white">API Yapılandırması:</strong> Traccar Client'ta Server URL'i şu şekilde ayarlayın: <code className="px-2 py-1 bg-slate-900 rounded text-xs">https://yourdomain.com/api/gps?id=DEVICE_ID</code>
+                <strong className="text-white">API Yapılandırması:</strong> Traccar Client&apos;ta Server URL&apos;i şu şekilde ayarlayın: <code className="px-2 py-1 bg-slate-900 rounded text-xs">https://yourdomain.com/api/gps?id=DEVICE_ID</code>
               </div>
             </div>
             <div className="flex items-start gap-2">

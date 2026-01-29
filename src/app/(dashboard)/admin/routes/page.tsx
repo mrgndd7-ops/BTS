@@ -34,6 +34,7 @@ export default function RoutesPage() {
   // Load personnel with their latest locations
   useEffect(() => {
     loadPersonnel()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadPersonnel = async () => {
@@ -87,6 +88,7 @@ export default function RoutesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase])
 
   const filteredPersonnel = personnel.filter(p => {

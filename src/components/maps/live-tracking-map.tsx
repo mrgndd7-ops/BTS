@@ -333,8 +333,9 @@ export function LiveTrackingMap({
     // Cleanup
     return () => {
       if (map.current) {
-        markers.current.forEach(marker => marker.remove())
-        markers.current.clear()
+        const currentMarkers = markers.current
+        currentMarkers.forEach(marker => marker.remove())
+        currentMarkers.clear()
         map.current.remove()
         map.current = null
       }
