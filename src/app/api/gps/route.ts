@@ -85,16 +85,16 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
-    // Find user by device_id
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, municipality_id, full_name')
-      .eq('traccar_device_id', deviceId)
+    // Find user by checking existing gps_locations with this device_id
+    const { data: existingLocation } = await supabase
+      .from('gps_locations')
+      .select('user_id, profiles:user_id(id, full_name, municipality_id)')
+      .eq('device_id', deviceId)
+      .not('user_id', 'is', null)
+      .limit(1)
       .single()
 
-    if (profileError) {
-      console.warn('⚠️ Profile query error:', profileError)
-    }
+    const profile = existingLocation?.profiles as any
 
     if (!profile) {
       console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
@@ -202,16 +202,16 @@ export async function GET(request: NextRequest) {
 
       console.log('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
-      // Find user by device_id
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, municipality_id, full_name')
-        .eq('traccar_device_id', deviceId)
+      // Find user by checking existing gps_locations with this device_id
+      const { data: existingLocation } = await supabase
+        .from('gps_locations')
+        .select('user_id, profiles:user_id(id, full_name, municipality_id)')
+        .eq('device_id', deviceId)
+        .not('user_id', 'is', null)
+        .limit(1)
         .single()
 
-      if (profileError) {
-        console.warn('⚠️ Profile query error:', profileError)
-      }
+      const profile = existingLocation?.profiles as any
 
       if (!profile) {
         console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)

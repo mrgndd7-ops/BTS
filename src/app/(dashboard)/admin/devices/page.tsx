@@ -28,7 +28,6 @@ interface Profile {
   full_name: string
   email: string
   role: string
-  traccar_device_id?: string
   status: string
 }
 
@@ -98,7 +97,7 @@ export default function DevicesPage() {
   const loadProfiles = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, email, role, traccar_device_id, status')
+      .select('id, full_name, email, role, status')
       .in('role', ['worker', 'driver'])
       .order('full_name')
 
@@ -122,16 +121,6 @@ export default function DevicesPage() {
   const saveMappings = async () => {
     setSaving(true)
     try {
-      // Update each profile with their device_id
-      const updates = Array.from(mappings.entries()).map(([deviceId, userId]) => {
-        return supabase
-          .from('profiles')
-          .update({ traccar_device_id: deviceId })
-          .eq('id', userId)
-      })
-
-      await Promise.all(updates)
-
       // Update user_id for existing locations with this device_id
       const locationUpdates = Array.from(mappings.entries()).map(([deviceId, userId]) => {
         return supabase
@@ -157,18 +146,20 @@ export default function DevicesPage() {
     }
   }
 
-  const unlinkDevice = async (profileId: string) => {
+  const unlinkDevice = async (deviceId: string) => {
     if (!confirm('Bu cihaz eşleştirmesini kaldırmak istediğinize emin misiniz?')) {
       return
     }
 
     try {
+      // Set user_id to null for all locations with this device_id
       await supabase
-        .from('profiles')
-        .update({ traccar_device_id: null })
-        .eq('id', profileId)
+        .from('gps_locations')
+        .update({ user_id: null })
+        .eq('device_id', deviceId)
 
       await loadProfiles()
+      await loadUnmappedDevices()
       alert('Cihaz eşleştirmesi kaldırıldı')
     } catch (error) {
       console.error('Error unlinking device:', error)
@@ -182,8 +173,7 @@ export default function DevicesPage() {
     p.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const mappedProfiles = profiles.filter(p => p.traccar_device_id)
-  const unmappedProfiles = profiles.filter(p => !p.traccar_device_id)
+  const unmappedProfiles = profiles // All profiles available for mapping
 
   return (
     <div className="flex flex-col h-full">
@@ -213,10 +203,10 @@ export default function DevicesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-white">{mappedProfiles.length}</p>
-                  <p className="text-sm text-slate-400">Eşleştirilmiş Personel</p>
+                  <p className="text-2xl font-bold text-white">{profiles.length}</p>
+                  <p className="text-sm text-slate-400">Toplam Personel</p>
                 </div>
-                <LinkIcon className="h-8 w-8 text-green-500" />
+                <User className="h-8 w-8 text-blue-500" />
               </div>
             </CardContent>
           </Card>
@@ -225,10 +215,10 @@ export default function DevicesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-white">{unmappedProfiles.length}</p>
-                  <p className="text-sm text-slate-400">Eşleştirilmemiş Personel</p>
+                  <p className="text-2xl font-bold text-white">{mappings.size}</p>
+                  <p className="text-sm text-slate-400">Bekleyen Eşleştirme</p>
                 </div>
-                <User className="h-8 w-8 text-blue-500" />
+                <LinkIcon className="h-8 w-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -308,10 +298,10 @@ export default function DevicesPage() {
             </CardContent>
           </Card>
 
-          {/* Mapped Profiles */}
+          {/* Available Personnel */}
           <Card>
             <CardHeader>
-              <CardTitle>Eşleştirilmiş Personel</CardTitle>
+              <CardTitle>Personel Listesi</CardTitle>
               <div className="relative mt-2">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
@@ -325,46 +315,22 @@ export default function DevicesPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {mappedProfiles.length === 0 ? (
-                  <div className="text-center text-slate-400 py-8">
-                    <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Henüz eşleştirilmiş personel yok</p>
-                  </div>
-                ) : (
-                  filteredProfiles
-                    .filter(p => p.traccar_device_id)
-                    .map(profile => (
-                      <div 
-                        key={profile.id}
-                        className="p-4 bg-slate-800/50 rounded-lg border border-slate-700"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <div className="font-medium text-white">{profile.full_name}</div>
-                            <div className="text-xs text-slate-400">{profile.email}</div>
-                          </div>
-                          <Badge variant={profile.role === 'worker' ? 'default' : 'info'}>
-                            {profile.role === 'worker' ? 'İşçi' : 'Sürücü'}
-                          </Badge>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-xs text-slate-400">
-                            <Smartphone className="h-3 w-3" />
-                            <span className="font-mono">{profile.traccar_device_id}</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => unlinkDevice(profile.id)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                          >
-                            <Unlink className="h-4 w-4" />
-                          </Button>
-                        </div>
+                {filteredProfiles.map(profile => (
+                  <div 
+                    key={profile.id}
+                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium text-white">{profile.full_name}</div>
+                        <div className="text-xs text-slate-400">{profile.email}</div>
                       </div>
-                    ))
-                )}
+                      <Badge variant={profile.role === 'worker' ? 'default' : 'info'}>
+                        {profile.role === 'worker' ? 'İşçi' : 'Sürücü'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
