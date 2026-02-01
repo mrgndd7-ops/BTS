@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { Header } from '@/components/dashboard/header'
 import { StatsCard } from '@/components/dashboard/stats-card'
-import { ClipboardList, Users, Route, CheckCircle } from 'lucide-react'
+import { ClipboardList, Users, Route, CheckCircle, MapPin } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { LiveTrackingMap } from '@/components/maps/live-tracking-map'
 
 interface DashboardStats {
   active_tasks: number
@@ -194,6 +195,32 @@ export default function AdminDashboardPage() {
           icon={CheckCircle}
         />
       </div>
+
+      {/* Live GPS Tracking Map */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-500" />
+                Canlı Personel Takip
+              </CardTitle>
+              <CardDescription>
+                Sahada çalışan personelin anlık konumları ve hareketleri
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <LiveTrackingMap 
+            className="w-full h-[600px]" 
+            showTrails={true}
+            onPersonnelClick={(userId) => {
+              window.location.href = `/admin/personnel/${userId}`
+            }}
+          />
+        </CardContent>
+      </Card>
 
       {/* Recent Activity */}
       <div className="grid gap-4 md:grid-cols-2">

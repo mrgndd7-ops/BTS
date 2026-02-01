@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/types/database'
 
 /**
  * GPS Tracking API Endpoint
@@ -10,6 +12,48 @@ import { createClient } from '@/lib/supabase/server'
  * 
  * Format: ?id=device_id&lat=41.0082&lon=28.9784&timestamp=1706529000000&speed=45.5&bearing=180&altitude=100&accuracy=10&batt=85.5
  */
+
+// Validate environment variables
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
+}
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
+}
+
+// Create Supabase Admin client (bypasses RLS)
+const supabaseAdmin = createSupabaseClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
+
+console.log('✅ Supabase Admin Client initialized for GPS API')
+
+// Development logging helper
+const devLog = (...args: any[]) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(...args)
+  }
+}
+
+// Type aliases
+type Profile = Database['public']['Tables']['profiles']['Row']
+type GpsLocationInsert = Omit<Database['public']['Tables']['gps_locations']['Insert'], 'source'>
+type GpsLocationRow = Database['public']['Tables']['gps_locations']['Row']
+
+// Profile with user relation (for queries)
+interface ProfileRelation {
+  id: string
+  full_name: string | null
+  municipality_id: string | null
+  role: string
+}
 
 // CORS headers
 const corsHeaders = {
@@ -38,25 +82,24 @@ interface TraccarClientParams {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
     const searchParams = request.nextUrl.searchParams
     
     // Log incoming request
-    console.log('🚀 GPS POST Request received:', {
+    devLog('🚀 GPS POST Request received:', {
       url: request.url,
       params: Object.fromEntries(searchParams.entries()),
       timestamp: new Date().toISOString()
     })
     
-    const deviceId = searchParams.get('id')
-    const lat = searchParams.get('lat')
-    const lon = searchParams.get('lon')
-    const timestamp = searchParams.get('timestamp')
-    const speed = searchParams.get('speed')
-    const bearing = searchParams.get('bearing')
-    const altitude = searchParams.get('altitude')
-    const accuracy = searchParams.get('accuracy')
-    const battery = searchParams.get('battery') || searchParams.get('batt')
+    const deviceId = searchParams.get('id')?.trim()
+    const lat = searchParams.get('lat')?.trim()
+    const lon = searchParams.get('lon')?.trim()
+    const timestamp = searchParams.get('timestamp')?.trim()
+    const speed = searchParams.get('speed')?.trim()
+    const bearing = searchParams.get('bearing')?.trim()
+    const altitude = searchParams.get('altitude')?.trim()
+    const accuracy = searchParams.get('accuracy')?.trim()
+    const battery = searchParams.get('battery')?.trim() || searchParams.get('batt')?.trim()
 
     // Validation
     if (!deviceId || !lat || !lon || !timestamp) {
@@ -67,7 +110,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('📍 Processing GPS location from device:', deviceId)
+    devLog('📍 Processing GPS location from device:', deviceId)
 
     // Convert to numbers
     const latitude = parseFloat(lat)
@@ -83,28 +126,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ Valid coordinates:', { latitude, longitude, recordedAt })
+    devLog('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
     // Find user by checking existing gps_locations with this device_id
-    const { data: existingLocation } = await supabase
+    const { data: existingLocation } = await supabaseAdmin
       .from('gps_locations')
-      .select('user_id, profiles:user_id(id, full_name, municipality_id)')
+      .select('user_id, profiles:user_id(id, full_name, municipality_id, role)')
       .eq('device_id', deviceId)
       .not('user_id', 'is', null)
       .limit(1)
       .single()
 
-    const profile = existingLocation?.profiles as any
+    type LocationWithProfile = {
+      user_id: string | null
+      profiles: ProfileRelation | null
+    }
+
+    const profile = (existingLocation as LocationWithProfile | null)?.profiles
 
     if (!profile) {
       console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
     } else {
-      console.log('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
+      devLog('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
     }
 
-    // Prepare GPS location data
-    const gpsData = {
+    // Prepare GPS location data with validation
+    const gpsData: GpsLocationInsert = {
       user_id: profile?.id || null,
+      municipality_id: profile?.municipality_id || null,
       latitude,
       longitude,
       accuracy: accuracy ? parseFloat(accuracy) : null,
@@ -112,33 +161,69 @@ export async function POST(request: NextRequest) {
       heading: bearing ? parseFloat(bearing) : null,
       altitude: altitude ? parseFloat(altitude) : null,
       battery_level: battery ? parseFloat(battery) : null,
-      source: 'traccar' as const,
       device_id: deviceId,
       recorded_at: recordedAt.toISOString()
     }
 
-    console.log('💾 Inserting GPS data:', gpsData)
+    // Validate required fields
+    if (!gpsData.device_id) {
+      console.error('❌ Missing device_id in GPS data')
+      return NextResponse.json(
+        { error: 'Invalid data: device_id is required' },
+        { status: 400, headers: corsHeaders }
+      )
+    }
 
-    // Insert into database
-    const { data, error } = await supabase
+    devLog('💾 Inserting GPS data:', {
+      ...gpsData,
+      user_mapped: !!profile,
+      municipality_mapped: !!gpsData.municipality_id
+    })
+
+    // Insert into database using admin client (bypasses RLS)
+    const { data, error } = await supabaseAdmin
       .from('gps_locations')
-      .insert(gpsData)
+      // @ts-ignore - Supabase type inference issue with Insert type
+      .insert(gpsData as Database['public']['Tables']['gps_locations']['Insert'])
       .select()
       .single()
 
     if (error) {
-      console.error('❌ Database insert error:', error)
+      console.error('❌ Database insert error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        device_id: deviceId,
+        has_user_id: !!gpsData.user_id
+      })
+      
+      // More specific error messages
+      let errorMessage = 'Failed to save location'
+      if (error.message.includes('not-null constraint')) {
+        errorMessage = 'Database constraint violation - check required fields'
+      } else if (error.message.includes('foreign key')) {
+        errorMessage = 'Invalid reference - user or municipality not found'
+      } else if (error.message.includes('unique constraint')) {
+        errorMessage = 'Duplicate GPS data detected'
+      }
+      
       return NextResponse.json(
-        { error: 'Failed to save location', details: error.message },
+        { 
+          error: errorMessage, 
+          details: error.message,
+          device_id: deviceId
+        },
         { status: 500, headers: corsHeaders }
       )
     }
 
-    console.log('✅ GPS location saved successfully:', data.id)
+    const insertedData = data as GpsLocationRow
+    devLog('✅ GPS location saved successfully:', insertedData.id)
 
     return NextResponse.json({ 
       success: true,
-      location_id: data.id,
+      location_id: insertedData.id,
       user_mapped: !!profile,
       message: 'Location saved'
     }, { status: 200, headers: corsHeaders })
@@ -160,31 +245,30 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
     const searchParams = request.nextUrl.searchParams
     
     // Log incoming request for debugging
-    console.log('🚀 GPS GET Request received:', {
+    devLog('🚀 GPS GET Request received:', {
       url: request.url,
       params: Object.fromEntries(searchParams.entries()),
       timestamp: new Date().toISOString()
     })
 
     // Check if this is a Traccar Client request (has required GPS params)
-    const deviceId = searchParams.get('id')
-    const lat = searchParams.get('lat')
-    const lon = searchParams.get('lon')
-    const timestamp = searchParams.get('timestamp')
+    const deviceId = searchParams.get('id')?.trim()
+    const lat = searchParams.get('lat')?.trim()
+    const lon = searchParams.get('lon')?.trim()
+    const timestamp = searchParams.get('timestamp')?.trim()
 
     // If GPS params present, treat as Traccar Client location update
     if (deviceId && lat && lon && timestamp) {
-      console.log('📍 Processing GPS location from device:', deviceId)
+      devLog('📍 Processing GPS location from device:', deviceId)
 
-      const speed = searchParams.get('speed')
-      const bearing = searchParams.get('bearing')
-      const altitude = searchParams.get('altitude')
-      const accuracy = searchParams.get('accuracy')
-      const battery = searchParams.get('battery') || searchParams.get('batt')
+      const speed = searchParams.get('speed')?.trim()
+      const bearing = searchParams.get('bearing')?.trim()
+      const altitude = searchParams.get('altitude')?.trim()
+      const accuracy = searchParams.get('accuracy')?.trim()
+      const battery = searchParams.get('battery')?.trim() || searchParams.get('batt')?.trim()
 
       // Convert to numbers
       const latitude = parseFloat(lat)
@@ -200,28 +284,34 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      console.log('✅ Valid coordinates:', { latitude, longitude, recordedAt })
+      devLog('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
       // Find user by checking existing gps_locations with this device_id
-      const { data: existingLocation } = await supabase
+      const { data: existingLocation } = await supabaseAdmin
         .from('gps_locations')
-        .select('user_id, profiles:user_id(id, full_name, municipality_id)')
+        .select('user_id, profiles:user_id(id, full_name, municipality_id, role)')
         .eq('device_id', deviceId)
         .not('user_id', 'is', null)
         .limit(1)
         .single()
 
-      const profile = existingLocation?.profiles as any
+      type LocationWithProfile = {
+        user_id: string | null
+        profiles: ProfileRelation | null
+      }
+
+      const profile = (existingLocation as LocationWithProfile | null)?.profiles
 
       if (!profile) {
         console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
       } else {
-        console.log('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
+        devLog('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
       }
 
-      // Prepare GPS data
-      const gpsData = {
+      // Prepare GPS data with validation
+      const gpsData: GpsLocationInsert = {
         user_id: profile?.id || null,
+        municipality_id: profile?.municipality_id || null,
         latitude,
         longitude,
         accuracy: accuracy ? parseFloat(accuracy) : null,
@@ -229,33 +319,68 @@ export async function GET(request: NextRequest) {
         heading: bearing ? parseFloat(bearing) : null,
         altitude: altitude ? parseFloat(altitude) : null,
         battery_level: battery ? parseFloat(battery) : null,
-        source: 'traccar' as const,
         device_id: deviceId,
         recorded_at: recordedAt.toISOString()
       }
 
-      console.log('💾 Inserting GPS data:', gpsData)
+      // Validate required fields
+      if (!gpsData.device_id) {
+        console.error('❌ Missing device_id in GPS data')
+        return NextResponse.json(
+          { error: 'Invalid data: device_id is required' },
+          { status: 400, headers: corsHeaders }
+        )
+      }
 
-      // Insert into database
-      const { data, error } = await supabase
+      devLog('💾 Inserting GPS data:', {
+        ...gpsData,
+        user_mapped: !!profile,
+        municipality_mapped: !!gpsData.municipality_id
+      })
+
+      // Insert into database using admin client (bypasses RLS)
+      const { data, error } = await supabaseAdmin
         .from('gps_locations')
-        .insert(gpsData)
+        // @ts-ignore - Supabase type inference issue with Insert type
+        .insert(gpsData as Database['public']['Tables']['gps_locations']['Insert'])
         .select()
         .single()
 
       if (error) {
-        console.error('❌ Database insert error:', error)
+        console.error('❌ Database insert error (GET):', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          device_id: deviceId,
+          has_user_id: !!gpsData.user_id
+        })
+        
+        let errorMessage = 'Failed to save location'
+        if (error.message.includes('not-null constraint')) {
+          errorMessage = 'Database constraint violation - check required fields'
+        } else if (error.message.includes('foreign key')) {
+          errorMessage = 'Invalid reference - user or municipality not found'
+        } else if (error.message.includes('unique constraint')) {
+          errorMessage = 'Duplicate GPS data detected'
+        }
+        
         return NextResponse.json(
-          { error: 'Failed to save location', details: error.message },
-          { status: 500 }
+          { 
+            error: errorMessage, 
+            details: error.message,
+            device_id: deviceId
+          },
+          { status: 500, headers: corsHeaders }
         )
       }
 
-      console.log('✅ GPS location saved successfully:', data.id)
+      const insertedData = data as GpsLocationRow
+      devLog('✅ GPS location saved successfully:', insertedData.id)
 
       return NextResponse.json({ 
         success: true,
-        location_id: data.id,
+        location_id: insertedData.id,
         user_mapped: !!profile,
         message: 'Location saved'
       }, { 
@@ -269,8 +394,10 @@ export async function GET(request: NextRequest) {
     }
 
     // If no GPS params, this is a query request (requires auth)
-    console.log('📊 Query request (requires authentication)')
+    devLog('📊 Query request (requires authentication)')
     
+    // Use regular authenticated client for queries
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
@@ -295,6 +422,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Type assertion for profile - we know these fields exist from select
+    const userProfile = profile as { municipality_id: string | null; role: string }
+
     // Parse query parameters
     const userId = searchParams.get('user_id')
     const limit = parseInt(searchParams.get('limit') || '100')
@@ -316,20 +446,20 @@ export async function GET(request: NextRequest) {
 
     // Filter by user_id if provided
     if (userId) {
-      if (profile.role === 'worker' && userId !== user.id) {
+      if (userProfile.role === 'worker' && userId !== user.id) {
         return NextResponse.json(
           { error: 'Forbidden: Cannot view other users locations' },
           { status: 403 }
         )
       }
       query = query.eq('user_id', userId)
-    } else if (profile.role === 'worker') {
+    } else if (userProfile.role === 'worker') {
       query = query.eq('user_id', user.id)
     }
 
-    // Filter by municipality
-    if (profile.role !== 'super_admin') {
-      query = query.eq('profiles.municipality_id', profile.municipality_id)
+    // Filter by municipality (use gps_locations.municipality_id directly)
+    if (userProfile.role !== 'super_admin' && userProfile.municipality_id) {
+      query = query.eq('municipality_id', userProfile.municipality_id)
     }
 
     // Filter by time if provided
@@ -347,7 +477,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('✅ Query successful, returning', data.length, 'locations')
+    devLog('✅ Query successful, returning', data.length, 'locations')
 
     return NextResponse.json({ 
       locations: data,
