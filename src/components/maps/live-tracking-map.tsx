@@ -210,69 +210,16 @@ export function LiveTrackingMap({
     }
   }, [supabase, showTrails])
 
-  // Load initial personnel locations
-  const loadPersonnelLocations = useCallback(async () => {
-    // Get latest location for each user
-    const { data, error } = await supabase
-      .from('gps_locations')
-      .select(`
-        id,
-        user_id,
-        latitude,
-        longitude,
-        accuracy,
-        speed,
-        heading,
-        battery_level,
-        recorded_at,
-        source,
-        profiles:user_id (
-          id,
-          full_name,
-          role,
-          avatar_url
-        )
-      `)
-      .order('recorded_at', { ascending: false })
-
-    if (error) {
-      console.error('Error loading personnel locations:', error)
-      return
-    }
-
-    if (!data) return
-
-    // Get latest location per user
-    const latestLocations = new Map<string, PersonnelLocation>()
-    data.forEach((location: any) => {
-      if (!latestLocations.has(location.user_id)) {
-        latestLocations.set(location.user_id, location as PersonnelLocation)
-      }
-    })
-
-    setPersonnelLocations(latestLocations)
-
-    // Update markers
-    latestLocations.forEach(personnel => {
-      updatePersonnelMarker(personnel)
-      if (showTrails) {
-        updatePersonnelTrail(personnel.user_id)
-      }
-    })
-
-    // Fit map to show all markers
-    if (latestLocations.size > 0 && map.current) {
-      const bounds = new maplibregl.LngLatBounds()
-      latestLocations.forEach(location => {
-        bounds.extend([location.longitude, location.latitude])
-      })
-      map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 })
-    }
-  }, [supabase, updatePersonnelMarker, updatePersonnelTrail, showTrails])
-
   // Initialize map
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:274',message:'Map init useEffect triggered',data:{hasContainer:!!mapContainer.current,hasMap:!!map.current,isLoaded},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+    // #endregion
     if (!mapContainer.current || map.current) return
+
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:278',message:'Creating new map instance',data:{center,zoom},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+    // #endregion
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
@@ -326,12 +273,17 @@ export function LiveTrackingMap({
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     map.current.on('load', () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:328',message:'Map loaded event fired',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setIsLoaded(true)
-      loadPersonnelLocations()
     })
 
     // Cleanup
     return () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:334',message:'Map cleanup running',data:{hadMap:!!map.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+      // #endregion
       if (map.current) {
         const currentMarkers = markers.current
         currentMarkers.forEach(marker => marker.remove())
@@ -340,11 +292,69 @@ export function LiveTrackingMap({
         map.current = null
       }
     }
-  }, [center, zoom, loadPersonnelLocations])
+  }, [center, zoom]) // REMOVED loadPersonnelLocations dependency
 
-  // Setup realtime subscription
+  // Setup realtime subscription and initial load
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:346',message:'Realtime subscription useEffect triggered',data:{isLoaded},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+    // #endregion
     if (!isLoaded) return
+
+    // Load initial personnel data
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('gps_locations')
+        .select(`
+          id,
+          user_id,
+          latitude,
+          longitude,
+          accuracy,
+          speed,
+          heading,
+          battery_level,
+          recorded_at,
+          source,
+          profiles:user_id (
+            id,
+            full_name,
+            role,
+            avatar_url
+          )
+        `)
+        .order('recorded_at', { ascending: false })
+
+      if (error || !data) return
+
+      const latestLocations = new Map<string, PersonnelLocation>()
+      data.forEach((location: any) => {
+        if (!latestLocations.has(location.user_id)) {
+          latestLocations.set(location.user_id, location as PersonnelLocation)
+        }
+      })
+
+      setPersonnelLocations(latestLocations)
+
+      latestLocations.forEach(personnel => {
+        updatePersonnelMarker(personnel)
+        if (showTrails) {
+          updatePersonnelTrail(personnel.user_id)
+        }
+      })
+
+      if (latestLocations.size > 0 && map.current) {
+        const bounds = new maplibregl.LngLatBounds()
+        latestLocations.forEach(location => {
+          bounds.extend([location.longitude, location.latitude])
+        })
+        map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 })
+      }
+    })()
+
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:351',message:'Creating realtime subscription',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     const channel = supabase
       .channel('live-gps-tracking')
@@ -391,9 +401,12 @@ export function LiveTrackingMap({
       .subscribe()
 
     return () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1ceb7883-60b4-41d0-86a3-72ad12f7f817',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'live-tracking-map.tsx:393',message:'Realtime subscription cleanup running',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       supabase.removeChannel(channel)
     }
-  }, [supabase, isLoaded, updatePersonnelMarker, updatePersonnelTrail, showTrails])
+  }, [isLoaded]) // REMOVED: supabase, updatePersonnelMarker, updatePersonnelTrail, showTrails
 
   return (
     <div className={cn('relative', className)}>
