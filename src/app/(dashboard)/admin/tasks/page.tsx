@@ -6,6 +6,7 @@ import { TaskAssignmentForm } from '@/components/forms/task-assignment-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import { useProfile } from '@/lib/hooks/use-profile'
 import { CheckCircle, Clock, XCircle, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
@@ -25,17 +26,25 @@ interface Task {
 
 export default function TasksPage() {
   const supabase = createClient()
+  const { profile } = useProfile()
   const [recentTasks, setRecentTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadRecentTasks = async () => {
     try {
-      // Önce tasks'ları çek
-      const { data: tasksData, error: tasksError } = await supabase
+      // Build query with municipality filter
+      let query = supabase
         .from('tasks')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10)
+      
+      // Multi-tenant isolation
+      if (profile?.municipality_id) {
+        query = query.eq('municipality_id', profile.municipality_id)
+      }
+      
+      const { data: tasksData, error: tasksError } = await query
 
       if (tasksError) {
         console.error('Görevler yüklenirken hata:', tasksError)

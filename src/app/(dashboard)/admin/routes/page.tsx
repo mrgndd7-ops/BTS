@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { LiveTrackingMap } from '@/components/maps/live-tracking-map'
 import { RouteCreationForm } from '@/components/forms/route-creation-form'
 import { createClient } from '@/lib/supabase/client'
+import { useProfile } from '@/lib/hooks/use-profile'
 import { cn } from '@/lib/utils/cn'
 import { Plus, MapPin, Users, Battery, Gauge, Clock } from 'lucide-react'
 
@@ -26,6 +27,7 @@ interface PersonnelInfo {
 export default function RoutesPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { profile } = useProfile()
   const [personnel, setPersonnel] = useState<PersonnelInfo[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -38,12 +40,18 @@ export default function RoutesPage() {
   }, [])
 
   const loadPersonnel = async () => {
-    // Get all personnel (workers)
-    const { data: profiles } = await supabase
+    // Get all personnel (workers) from same municipality
+    let query = supabase
       .from('profiles')
       .select('id, full_name, role, status')
       .eq('role', 'personnel')
-      .order('full_name')
+    
+    // Multi-tenant isolation
+    if (profile?.municipality_id) {
+      query = query.eq('municipality_id', profile.municipality_id)
+    }
+    
+    const { data: profiles } = await query.order('full_name')
 
     if (!profiles) return
 
@@ -323,6 +331,7 @@ export default function RoutesPage() {
             className="h-full w-full"
             center={[29.0, 41.0]}
             zoom={11}
+            municipalityId={profile?.municipality_id || undefined}
             showTrails={true}
             onPersonnelClick={(personnelId) => {
               router.push(`/admin/personnel/${personnelId}`)

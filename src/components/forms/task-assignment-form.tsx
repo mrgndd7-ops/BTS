@@ -36,7 +36,7 @@ interface TaskAssignmentFormProps {
 
 export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
   const supabase = createClient()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [personnel, setPersonnel] = useState<Personnel[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,12 +64,20 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
 
       try {
         console.log('📡 Supabase query başlatılıyor...')
-        const { data, error } = await supabase
+        
+        // Build query with municipality filter if available
+        let query = supabase
           .from('profiles')
           .select('id, full_name, department')
           .eq('role', 'personnel')
           .eq('status', 'active')
-          .order('full_name')
+        
+        // Multi-tenant isolation: Only show personnel from same municipality
+        if (profile?.municipality_id) {
+          query = query.eq('municipality_id', profile.municipality_id)
+        }
+        
+        const { data, error } = await query.order('full_name')
 
         console.log('📊 Query sonucu:', { data, error, count: data?.length })
 
@@ -94,7 +102,7 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
     }
 
     loadPersonnel()
-  }, [supabase, user])
+  }, [supabase, user, profile?.municipality_id])
 
   const onSubmit = async (data: TaskFormData) => {
     if (!user) return

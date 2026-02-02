@@ -297,7 +297,7 @@ export function LiveTrackingMap({
 
     // Load initial personnel data
     ;(async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('gps_locations')
         .select(`
           id,
@@ -317,6 +317,13 @@ export function LiveTrackingMap({
           )
         `)
         .order('recorded_at', { ascending: false })
+      
+      // Multi-tenant isolation: Filter by municipality if provided
+      if (municipalityId) {
+        query = query.eq('municipality_id', municipalityId)
+      }
+      
+      const { data, error } = await query
 
       if (error || !data) return
 
@@ -363,6 +370,11 @@ export function LiveTrackingMap({
           // Eğer user_id yoksa (device mapping yok), skip et
           if (!newLocation.user_id) {
             console.log('⚠️ GPS data without user_id, skipping:', newLocation.device_id)
+            return
+          }
+
+          // Multi-tenant isolation: Skip if different municipality
+          if (municipalityId && newLocation.municipality_id !== municipalityId) {
             return
           }
 

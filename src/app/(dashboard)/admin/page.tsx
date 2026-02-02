@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useProfile } from '@/lib/hooks/use-profile'
 import { LiveTrackingMap } from '@/components/maps/live-tracking-map'
 
 interface DashboardStats {
@@ -30,6 +31,7 @@ interface RecentTask {
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
+  const { profile } = useProfile()
   const [stats, setStats] = useState<DashboardStats>({
     active_tasks: 0,
     active_personnel: 0,
@@ -46,35 +48,45 @@ export default function AdminDashboardPage() {
     const supabase = createClient()
 
     const loadDashboardData = async () => {
+      const municipalityId = profile?.municipality_id
+      
       // Aktif görevler
-      const { count: activeTasks } = await supabase
+      let tasksQuery = supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .in('status', ['assigned', 'in_progress'])
+      if (municipalityId) tasksQuery = tasksQuery.eq('municipality_id', municipalityId)
+      const { count: activeTasks } = await tasksQuery
 
       // Aktif personel
-      const { count: activePersonnel } = await supabase
+      let personnelQuery = supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('role', 'personnel')
         .eq('status', 'active')
+      if (municipalityId) personnelQuery = personnelQuery.eq('municipality_id', municipalityId)
+      const { count: activePersonnel } = await personnelQuery
 
       // Toplam rotalar
-      const { count: totalRoutes } = await supabase
+      let routesQuery = supabase
         .from('routes')
         .select('*', { count: 'exact', head: true })
         .eq('active', true)
+      if (municipalityId) routesQuery = routesQuery.eq('municipality_id', municipalityId)
+      const { count: totalRoutes } = await routesQuery
 
       // Bu ay tamamlanan görevler
       const startOfMonth = new Date()
       startOfMonth.setDate(1)
       startOfMonth.setHours(0, 0, 0, 0)
 
-      const { count: completedThisMonth } = await supabase
+      let completedQuery = supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'completed')
         .gte('completed_at', startOfMonth.toISOString())
+      if (municipalityId) completedQuery = completedQuery.eq('municipality_id', municipalityId)
+      const { count: completedThisMonth } = await completedQuery
 
       setStats({
         active_tasks: activeTasks || 0,
@@ -84,7 +96,7 @@ export default function AdminDashboardPage() {
       })
 
       // Son görevler
-      const { data: tasks } = await supabase
+      let recentTasksQuery = supabase
         .from('tasks')
         .select(`
           id,
@@ -97,6 +109,8 @@ export default function AdminDashboardPage() {
         `)
         .order('created_at', { ascending: false })
         .limit(5)
+      if (municipalityId) recentTasksQuery = recentTasksQuery.eq('municipality_id', municipalityId)
+      const { data: tasks } = await recentTasksQuery
 
       if (tasks) {
         setRecentTasks(tasks as any)
@@ -123,7 +137,7 @@ export default function AdminDashboardPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user])
+  }, [user, profile?.municipality_id])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -219,6 +233,7 @@ export default function AdminDashboardPage() {
             className="w-full h-[600px]" 
             center={[29.0, 41.0]}
             zoom={11}
+            municipalityId={profile?.municipality_id || undefined}
             showTrails={true}
             onPersonnelClick={async (userId) => {
               // Personel bilgilerini fetch et

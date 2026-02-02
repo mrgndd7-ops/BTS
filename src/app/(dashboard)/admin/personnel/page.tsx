@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useProfile } from '@/lib/hooks/use-profile'
 import { Users, UserPlus, MapPin, Phone, Mail, Building2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -35,6 +36,7 @@ interface Personnel {
 export default function PersonnelPage() {
   const supabase = createClient()
   const { user } = useAuth()
+  const { profile } = useProfile()
   const [personnel, setPersonnel] = useState<Personnel[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active')
@@ -43,11 +45,18 @@ export default function PersonnelPage() {
     if (!user) return
 
     const loadPersonnel = async () => {
-      const { data: profilesData } = await supabase
+      // Build query with municipality filter
+      let query = supabase
         .from('profiles')
         .select('*')
         .eq('role', 'personnel')
-        .order('full_name')
+      
+      // Multi-tenant isolation: Only show personnel from same municipality
+      if (profile?.municipality_id) {
+        query = query.eq('municipality_id', profile.municipality_id)
+      }
+      
+      const { data: profilesData } = await query.order('full_name')
 
       if (!profilesData) {
         setLoading(false)
