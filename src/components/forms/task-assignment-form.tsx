@@ -17,7 +17,7 @@ const taskSchema = z.object({
   description: z.string().optional(),
   assigned_to: z.string().min(1, 'Personel seçilmeli'),
   priority: z.enum(['low', 'medium', 'high']).default('medium'),
-  location: z.string().optional(),
+  location_address: z.string().optional(),
   route_id: z.string().optional(),
   scheduled_start: z.string().optional(),
 })
@@ -123,7 +123,7 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
         description: data.description || null,
         assigned_to: data.assigned_to,
         priority: data.priority || 'medium',
-        location: data.location || null,
+        location_address: data.location_address || null,
         route_id: data.route_id || null,
         scheduled_start: data.scheduled_start || null,
         status: 'assigned',
@@ -262,7 +262,7 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
           <Input
             label="Lokasyon (İsteğe Bağlı)"
             placeholder="Örn: Kadıköy, Moda Caddesi"
-            {...register('location')}
+            {...register('location_address')}
           />
 
           <Input

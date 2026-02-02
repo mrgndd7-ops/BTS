@@ -15,7 +15,7 @@ interface Task {
   description: string | null
   status: string
   priority: string
-  location: string | null
+  location_address: string | null
   created_at: string
   assigned_to: string | null
   profiles: {
@@ -198,10 +198,10 @@ export default function TasksPage() {
                         </div>
                       )}
 
-                      {task.location && (
+                      {task.location_address && (
                         <div className="flex items-center gap-1.5 ml-auto">
                           <MapPin className="h-3 w-3" />
-                          <span className="text-slate-400">{task.location}</span>
+                          <span className="text-slate-400">{task.location_address}</span>
                         </div>
                       )}
                     </div>
