@@ -64,7 +64,7 @@ export default function RoutesPage() {
           .eq('user_id', profile.id)
           .order('recorded_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle() // 🔧 FIX: Use maybeSingle() to prevent 406 errors
 
         return {
           ...profile,

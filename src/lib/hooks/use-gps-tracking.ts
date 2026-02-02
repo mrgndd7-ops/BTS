@@ -44,7 +44,8 @@ export function useGPSTracking(taskId?: string | null) {
    * Konum verisini Supabase'e kaydet
    */
   const saveLocationToDatabase = useCallback(async (location: LocationData) => {
-    if (!user?.id) {
+    if (!user || !user.id) {
+      console.error('❌ User ID bulunamadı, GPS kaydedilemiyor')
       return
     }
 

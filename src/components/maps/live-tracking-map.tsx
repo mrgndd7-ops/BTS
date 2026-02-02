@@ -367,6 +367,7 @@ export function LiveTrackingMap({
 
   // Setup realtime subscription and initial load
   useEffect(() => {
+    // 🔥 CRITICAL: Only run once when map is loaded
     if (!isLoaded) return
 
     console.log('🚀 Initializing GPS tracking map...')
@@ -574,8 +575,7 @@ export function LiveTrackingMap({
       console.log('🧹 Cleaning up GPS tracking subscription')
       supabase.removeChannel(channel)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded]) // Only depend on isLoaded - functions are stable via useCallback
+  }, []) // 🔥 CRITICAL: Empty dependency array - subscription should only be created once
 
   return (
     <div className={cn('relative', className)}>
