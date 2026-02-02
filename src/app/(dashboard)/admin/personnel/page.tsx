@@ -43,7 +43,6 @@ export default function PersonnelPage() {
     if (!user) return
 
     const loadPersonnel = async () => {
-      // Load personnel with device mappings
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('*')
@@ -55,13 +54,11 @@ export default function PersonnelPage() {
         return
       }
 
-      // Filter by status
       const filtered = filter === 'all' 
         ? profilesData 
         : profilesData.filter(p => p.status === filter)
 
-      // Load latest GPS location for each personnel (instead of device_mappings)
-      const personnelWithDevices = await Promise.all(
+      const personnelWithLocations = await Promise.all(
         filtered.map(async (person) => {
           const { data: latestLocation } = await supabase
             .from('gps_locations')
@@ -74,12 +71,12 @@ export default function PersonnelPage() {
           return {
             ...person,
             latest_location: latestLocation,
-            device_mappings: [] // Deprecated: device_mappings removed
+            device_mappings: []
           }
         })
       )
 
-      setPersonnel(personnelWithDevices)
+      setPersonnel(personnelWithLocations)
       setLoading(false)
     }
 
@@ -93,7 +90,7 @@ export default function PersonnelPage() {
       case 'inactive':
         return <Badge variant="error">Pasif</Badge>
       case 'on_leave':
-        return <Badge variant="warning">İzinli</Badge>
+        return <Badge variant="warning">Izinli</Badge>
       default:
         return <Badge variant="default">{status}</Badge>
     }
@@ -102,7 +99,7 @@ export default function PersonnelPage() {
   if (loading) {
     return (
       <div className="space-y-6 p-6">
-        <Header title="Personel" description="Personel yönetimi" />
+        <Header title="Personel" description="Personel yonetimi" />
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
         </div>
@@ -113,14 +110,13 @@ export default function PersonnelPage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <Header title="Personel" description="Personel yönetimi ve bilgileri" />
+        <Header title="Personel" description="Personel yonetimi ve bilgileri" />
         <Button>
           <UserPlus className="mr-2 h-4 w-4" />
           Yeni Personel
         </Button>
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex gap-2 border-b border-slate-800">
         <button
           onClick={() => setFilter('all')}
@@ -130,7 +126,7 @@ export default function PersonnelPage() {
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          Tümü ({personnel.length})
+          Tumu ({personnel.length})
         </button>
         <button
           onClick={() => setFilter('active')}
@@ -154,12 +150,11 @@ export default function PersonnelPage() {
         </button>
       </div>
 
-      {/* Personnel Grid */}
       {personnel.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-            <p className="text-slate-400">Personel bulunamadı</p>
+            <p className="text-slate-400">Personel bulunamadi</p>
           </CardContent>
         </Card>
       ) : (
@@ -174,7 +169,7 @@ export default function PersonnelPage() {
                     </div>
                     <div>
                       <CardTitle className="text-base">
-                        {person.full_name || 'İsimsiz'}
+                        {person.full_name || 'Isimsiz'}
                       </CardTitle>
                       {person.employee_id && (
                         <p className="text-xs text-slate-400">#{person.employee_id}</p>
@@ -210,7 +205,6 @@ export default function PersonnelPage() {
                   </div>
                 )}
 
-                {/* GPS Location Section */}
                 <div className="pt-3 border-t border-slate-700">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-slate-400">GPS Konumu</span>
@@ -232,11 +226,11 @@ export default function PersonnelPage() {
                           </code>
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
-                          Son güncelleme: {new Date(person.latest_location.recorded_at).toLocaleString('tr-TR')}
+                          Son guncelleme: {new Date(person.latest_location.recorded_at).toLocaleString('tr-TR')}
                         </p>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="pt-2 flex gap-2">
@@ -245,9 +239,6 @@ export default function PersonnelPage() {
                       Detay
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm">
-                    <MapPin className="h-4 w-4" />
-                  </Button>
                 </div>
               </CardContent>
             </Card>
