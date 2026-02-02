@@ -20,8 +20,6 @@ interface PersonnelInfo {
     latitude: number
     longitude: number
     recorded_at: string
-    battery_level?: number
-    speed?: number
   }
 }
 
@@ -54,7 +52,7 @@ export default function RoutesPage() {
       profiles.map(async (profile) => {
         const { data: location } = await supabase
           .from('gps_locations')
-          .select('latitude, longitude, recorded_at, battery_level, speed')
+          .select('latitude, longitude, recorded_at')
           .eq('user_id', profile.id)
           .order('recorded_at', { ascending: false })
           .limit(1)
@@ -264,31 +262,6 @@ export default function RoutesPage() {
                             </span>
                           </div>
                           
-                          <div className="flex items-center gap-4">
-                            {person.last_location.speed !== null && person.last_location.speed > 0 && (
-                              <div className="flex items-center gap-1.5 text-xs">
-                                <Gauge className="h-3.5 w-3.5 text-blue-400" />
-                                <span className="text-slate-300 font-medium">
-                                  {Math.round(person.last_location.speed * 3.6)}
-                                </span>
-                                <span className="text-slate-500">km/s</span>
-                              </div>
-                            )}
-                            {person.last_location.battery_level !== null && (
-                              <div className="flex items-center gap-1.5 text-xs">
-                                <Battery className={cn(
-                                  "h-3.5 w-3.5",
-                                  person.last_location.battery_level < 20 ? "text-red-400" : "text-green-400"
-                                )} />
-                                <span className={cn(
-                                  "font-medium",
-                                  person.last_location.battery_level < 20 ? "text-red-400" : "text-slate-300"
-                                )}>
-                                  {Math.round(person.last_location.battery_level)}%
-                                </span>
-                              </div>
-                            )}
-                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">

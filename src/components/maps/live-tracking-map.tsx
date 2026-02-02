@@ -184,6 +184,9 @@ export function LiveTrackingMap({
       }
     }
 
+    // Check if map is loaded and ready
+    if (!map.current.loaded()) return
+
     if (map.current.getSource(sourceId)) {
       // Update existing source
       const source = map.current.getSource(sourceId) as maplibregl.GeoJSONSource
