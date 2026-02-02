@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     
-    // Log incoming request
-    devLog('🚀 GPS POST Request received:', {
+    // ALWAYS log incoming requests (production too)
+    console.log('🚀 GPS POST Request received:', {
       url: request.url,
       params: Object.fromEntries(searchParams.entries()),
       timestamp: new Date().toISOString()
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    devLog('📍 Processing GPS location from device:', deviceId)
+    console.log('📍 Processing GPS location from device:', deviceId)
 
     // Convert to numbers
     const latitude = parseFloat(lat)
@@ -126,15 +126,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    devLog('✅ Valid coordinates:', { latitude, longitude, recordedAt })
+    console.log('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
     // Find user by checking device_mappings table
-    const { data: deviceMapping } = await supabaseAdmin
+    console.log('🔍 Looking for device mapping:', deviceId)
+    const { data: deviceMapping, error: mappingError } = await supabaseAdmin
       .from('device_mappings')
       .select('user_id, municipality_id, profiles:user_id(id, full_name, municipality_id, role)')
       .eq('device_id', deviceId)
       .eq('is_active', true)
       .single()
+
+    console.log('📊 Device mapping result:', { deviceMapping, mappingError })
 
     type DeviceMappingWithProfile = {
       user_id: string
@@ -147,9 +150,9 @@ export async function POST(request: NextRequest) {
 
     if (!profile) {
       console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
-      console.warn(`⚠️ Admin needs to map this device at /admin/devices`)
+      console.warn(`⚠️ Admin needs to map this device at /admin/personnel`)
     } else {
-      devLog('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
+      console.log('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
     }
 
     // Prepare GPS location data with validation
@@ -176,7 +179,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    devLog('💾 Inserting GPS data:', {
+    console.log('💾 Inserting GPS data:', {
       ...gpsData,
       user_mapped: !!profile,
       municipality_mapped: !!gpsData.municipality_id
@@ -214,14 +217,19 @@ export async function POST(request: NextRequest) {
         { 
           error: errorMessage, 
           details: error.message,
-          device_id: deviceId
+          device_id: deviceId,
+          hint: 'Check if device is properly mapped in /admin/personnel'
         },
         { status: 500, headers: corsHeaders }
       )
     }
 
     const insertedData = data as GpsLocationRow
-    devLog('✅ GPS location saved successfully:', insertedData.id)
+    console.log('✅ GPS location saved successfully:', {
+      location_id: insertedData.id,
+      device_id: deviceId,
+      user_id: gpsData.user_id
+    })
 
     return NextResponse.json({ 
       success: true,
@@ -249,8 +257,8 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     
-    // Log incoming request for debugging
-    devLog('🚀 GPS GET Request received:', {
+    // ALWAYS log incoming requests (production too)
+    console.log('🚀 GPS GET Request received:', {
       url: request.url,
       params: Object.fromEntries(searchParams.entries()),
       timestamp: new Date().toISOString()
