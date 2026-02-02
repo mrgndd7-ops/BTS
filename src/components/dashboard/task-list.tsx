@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, CheckCircle2, Clock, Play, Info } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock, Play, Info, MapPin, Navigation } from 'lucide-react'
 
 interface Task {
   id: string
@@ -22,9 +23,11 @@ interface Task {
 export function TaskList() {
   const supabase = createClient()
   const { user } = useAuth()
+  const { isTracking, startTracking, stopTracking, currentLocation } = useGPSTracking()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [startingTask, setStartingTask] = useState<string | null>(null)
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
 
   // Görevleri yükle
   useEffect(() => {
@@ -78,16 +81,23 @@ export function TaskList() {
     }
   }, [user, supabase])
 
-  // Görevi başlat (GPS tracking uygulaması zaten çalışıyor olmalı)
+  // Görevi başlat ve GPS tracking'i otomatik başlat
   const handleStartTask = async (taskId: string) => {
-    console.log('🚀 Görev başlatma başladı, Task ID:', taskId)
+    console.log('Gorev baslatma basladi, Task ID:', taskId)
     setStartingTask(taskId)
 
     try {
-      // GPS uygulamasının çalıştığını varsayıyoruz
-      // GPS izni kontrolü mobil uygulama tarafından yapılıyor
+      // 1. GPS Tracking'i başlat
+      console.log('GPS tracking baslatiliyor...')
+      const trackingStarted = await startTracking()
       
-      console.log('💾 Görev durumu güncelleniyor...')
+      if (!trackingStarted) {
+        throw new Error('GPS tracking baslatılamadi. Lutfen konum iznini kontrol edin.')
+      }
+
+      console.log('GPS tracking baslatildi, gorev durumu guncelleniyor...')
+      
+      // 2. Görev durumunu güncelle
       const { data, error } = await supabase
         .from('tasks')
         .update({ 
@@ -98,26 +108,42 @@ export function TaskList() {
         .select()
         .single()
       
-      console.log('💾 Görev güncelleme sonucu:', { data, error })
+      console.log('Gorev guncelleme sonucu:', { data, error })
       
       if (error) throw error
 
-      console.log('✅ Görev başarıyla başlatıldı!')
-      alert('Görev başlatıldı! GPS takibi mobil cihazınız üzerinden yapılıyor.')
-    } catch (err) {
-      console.error('❌ Görev başlatma hatası:', err)
-      alert('Görev başlatılamadı. Lütfen tekrar deneyin.')
+      // 3. Aktif görev olarak kaydet
+      setActiveTaskId(taskId)
+      
+      console.log('Gorev basariyla baslatildi! GPS tracking aktif.')
+    } catch (err: any) {
+      console.error('Gorev baslatma hatasi:', err)
+      alert(err.message || 'Gorev baslatilamadi. Lutfen tekrar deneyin.')
+      
+      // Hata durumunda GPS tracking'i durdur
+      if (isTracking) {
+        stopTracking()
+      }
     } finally {
       setStartingTask(null)
     }
   }
 
-  // Görevi tamamla
+  // Görevi tamamla ve GPS tracking'i durdur
   const handleCompleteTask = async (taskId: string) => {
-    const confirmed = confirm('Bu görevi tamamladınız mı?')
+    const confirmed = confirm('Bu gorevi tamamladiniz mi? GPS tracking durdurul acak.')
     if (!confirmed) return
 
     try {
+      console.log('Gorev tamamlaniyor, Task ID:', taskId)
+      
+      // 1. GPS Tracking'i durdur
+      if (isTracking) {
+        console.log('GPS tracking durduruluyor...')
+        stopTracking()
+      }
+
+      // 2. Görev durumunu güncelle
       const { error } = await supabase
         .from('tasks')
         .update({ 
@@ -128,14 +154,18 @@ export function TaskList() {
 
       if (error) throw error
 
-      // GPS tracking'i durdur
-      // Bu göreve ait tüm GPS noktalarını trace olarak kaydet
-      // (İleride eklenebilir)
+      // 3. Aktif görev ID'sini temizle
+      setActiveTaskId(null)
       
-      alert('Görev başarıyla tamamlandı!')
+      console.log('Gorev basariyla tamamlandi! GPS tracking durduruldu.')
+      
+      // TODO: GPS trace oluştur
+      // Bu göreve ait tüm gps_locations kayıtlarını al
+      // gps_traces tablosuna özet olarak kaydet
+      
     } catch (err) {
-      console.error('Görev tamamlama hatası:', err)
-      alert('Görev tamamlanamadı')
+      console.error('Gorev tamamlama hatasi:', err)
+      alert('Gorev tamamlanamadi')
     }
   }
 
@@ -173,16 +203,32 @@ export function TaskList() {
 
   return (
     <div className="space-y-4">
-      {/* GPS Tracking Uyarısı */}
-      <Card className="border-blue-500/20 bg-blue-500/5">
+      {/* GPS Tracking Durumu */}
+      <Card className={`border ${isTracking ? 'border-green-500/20 bg-green-500/5' : 'border-blue-500/20 bg-blue-500/5'}`}>
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-blue-400 font-medium">GPS Takibi Mobil Cihazınız Üzerinden Yapılmaktadır</p>
+            {isTracking ? (
+              <Navigation className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5 animate-pulse" />
+            ) : (
+              <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${isTracking ? 'text-green-400' : 'text-blue-400'}`}>
+                {isTracking ? 'GPS Tracking Aktif' : 'GPS Tracking Hazir'}
+              </p>
               <p className="text-xs text-slate-400 mt-1">
-                Görevi başlatmadan önce GPS tracking uygulamasını telefonunuzda başlattığınızdan emin olun. 
-                Ana Sayfa'daki kurulum talimatlarını takip edin.
+                {isTracking ? (
+                  <>
+                    Konumunuz her 10 saniyede bir kaydediliyor.
+                    {currentLocation && (
+                      <span className="ml-2 text-green-400">
+                        Hassasiyet: ~{currentLocation.accuracy.toFixed(0)}m
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Gorev baslattiginizda GPS tracking otomatik olarak baslayacak.'
+                )}
               </p>
             </div>
           </div>
@@ -251,8 +297,15 @@ export function TaskList() {
             </div>
 
             {task.status === 'assigned' && (
-              <p className="text-xs text-slate-400">
-                ℹ️ GPS uygulamasını çalıştırdıktan sonra görevi başlatın
+              <p className="text-xs text-slate-400 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                Gorev baslatildiginda GPS tracking otomatik baslar
+              </p>
+            )}
+            {task.status === 'in_progress' && activeTaskId === task.id && isTracking && (
+              <p className="text-xs text-green-400 flex items-center gap-1">
+                <Navigation className="h-3 w-3 animate-pulse" />
+                GPS tracking aktif - Konumunuz kaydediliyor
               </p>
             )}
           </CardContent>
