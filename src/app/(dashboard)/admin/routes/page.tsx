@@ -44,7 +44,7 @@ export default function RoutesPage() {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, role, status')
-      .in('role', ['worker', 'driver'])
+      .eq('role', 'personnel')
       .order('full_name')
 
     if (!profiles) return
