@@ -163,6 +163,7 @@ export function useAuth() {
   }
 
   const logout = async () => {
+    // 1. Sign out from Supabase (clears server-side session)
     const { error } = await supabase.auth.signOut()
     
     if (error) {
@@ -170,15 +171,35 @@ export function useAuth() {
       throw error
     }
 
-    // Zustand store'u temizle
+    // 2. Reset Zustand store
     reset()
     
-    // localStorage'daki auth-storage'ı da temizle (mobil için kritik)
+    // 3. CRITICAL: Clear ALL auth-related storage
     if (typeof window !== 'undefined') {
       try {
+        // Clear localStorage
         localStorage.removeItem('auth-storage')
+        localStorage.removeItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0] + '-auth-token')
+        
+        // Clear sessionStorage
+        sessionStorage.clear()
+        
+        // FORCE clear ALL Supabase cookies
+        const cookieNames = [
+          'sb-access-token',
+          'sb-refresh-token', 
+          'sb-auth-token',
+          'sb-provider-token',
+          'sb-oauth-state'
+        ]
+        
+        cookieNames.forEach(name => {
+          document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+          document.cookie = `${name}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+          document.cookie = `${name}=; path=/; domain=.${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        })
       } catch (e) {
-        // Silently fail
+        console.error('Storage cleanup error:', e)
       }
     }
   }

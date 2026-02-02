@@ -8,6 +8,13 @@ import { Database } from '@/types/database'
 
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
 
+/**
+ * Reset client singleton (for logout)
+ */
+export function resetClient() {
+  browserClient = null
+}
+
 export function createClient() {
   // Singleton pattern - aynı client'ı tekrar kullan (mobil için kritik)
   if (browserClient) {

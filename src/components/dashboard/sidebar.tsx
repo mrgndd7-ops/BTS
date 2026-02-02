@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { resetClient } from '@/lib/supabase/client'
 import { 
   LayoutDashboard, 
   Route, 
@@ -54,17 +55,30 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
+      // 1. Logout (clears storage + cookies)
       await logout()
       
-      // Hard reload ile login'e git (cache'i temizlemek için)
+      // 2. Reset Supabase client singleton
+      resetClient()
+      
+      // 3. FORCE hard reload to clear ALL memory
       if (typeof window !== 'undefined') {
         window.location.href = '/login'
+        // Force full page reload (not SPA navigation)
+        setTimeout(() => {
+          window.location.reload()
+        }, 100)
       }
     } catch (error) {
       console.error('Logout error:', error)
-      // Hata olsa bile logout yap
+      
+      // Force redirect even on error
       if (typeof window !== 'undefined') {
+        resetClient()
         window.location.href = '/login'
+        setTimeout(() => {
+          window.location.reload()
+        }, 100)
       }
     }
   }
