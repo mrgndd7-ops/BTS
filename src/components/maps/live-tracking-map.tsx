@@ -140,7 +140,10 @@ export function LiveTrackingMap({
 
   // Update or create marker for personnel
   const updatePersonnelMarker = useCallback((personnel: PersonnelLocation) => {
-    if (!map.current) return
+    if (!map.current) {
+      console.error('❌ Map not initialized, cannot create marker')
+      return
+    }
 
     // Determine if task is active (in_progress status)
     const isActiveTask = !!(personnel.task_id && personnel.tasks?.status === 'in_progress')
@@ -148,9 +151,12 @@ export function LiveTrackingMap({
     // DEBUG LOG
     console.log('📍 Update Marker:', {
       user: personnel.profiles?.full_name,
+      user_id: personnel.user_id,
+      position: [personnel.longitude, personnel.latitude],
       task_id: personnel.task_id,
       task_status: personnel.tasks?.status,
-      isActiveTask
+      isActiveTask,
+      map_loaded: map.current?.loaded()
     })
 
     const existingMarker = markers.current.get(personnel.user_id)
@@ -184,6 +190,7 @@ export function LiveTrackingMap({
         .addTo(map.current)
       
       markers.current.set(personnel.user_id, marker)
+      console.log('✅ Marker updated (recreated):', personnel.profiles.full_name)
     } else {
       // Create new marker
       const el = createMarkerElement(personnel, isActiveTask)
@@ -199,6 +206,7 @@ export function LiveTrackingMap({
         .addTo(map.current)
       
       markers.current.set(personnel.user_id, marker)
+      console.log('✅ New marker created:', personnel.profiles.full_name, 'Total markers:', markers.current.size)
     }
   }, [createMarkerElement, createPopupContent])
 
@@ -365,6 +373,8 @@ export function LiveTrackingMap({
 
     // Load initial personnel data
     const loadInitialData = async () => {
+      console.log('🔍 Loading GPS data...', { isSuperAdmin, municipalityId })
+      
       let query = supabase
         .from('gps_locations')
         .select(`
@@ -404,27 +414,51 @@ export function LiveTrackingMap({
       
       const { data, error } = await query
 
+      console.log('📦 Raw GPS data received:', { 
+        count: data?.length || 0, 
+        error: error?.message,
+        sample: data?.[0]
+      })
+
       if (error) {
         console.error('❌ Initial data load error:', error)
         return
       }
 
-      if (!data) return
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No GPS data found in database')
+        return
+      }
 
       const latestLocations = new Map<string, PersonnelLocation>()
       data.forEach((location: any) => {
+        console.log('🔍 Processing location:', {
+          user_id: location.user_id,
+          has_profile: !!location.profiles,
+          profile_name: location.profiles?.full_name,
+          lat: location.latitude,
+          lng: location.longitude
+        })
+        
         // Skip if no user_id or no profile data
-        if (!location.user_id || !location.profiles) return
+        if (!location.user_id || !location.profiles) {
+          console.warn('⚠️ Skipping location - missing user_id or profile:', location)
+          return
+        }
         
         if (!latestLocations.has(location.user_id)) {
           latestLocations.set(location.user_id, location as PersonnelLocation)
         }
       })
 
-      console.log('📊 Initial locations loaded:', latestLocations.size)
+      console.log('📊 Initial locations loaded:', latestLocations.size, 'unique users')
+      console.log('📍 User IDs:', Array.from(latestLocations.keys()))
       setPersonnelLocations(latestLocations)
 
+      console.log('🎯 Creating markers for', latestLocations.size, 'personnel')
+      
       latestLocations.forEach(personnel => {
+        console.log('📍 Creating marker for:', personnel.profiles.full_name, 'at', [personnel.longitude, personnel.latitude])
         updatePersonnelMarker(personnel)
         if (showTrails) {
           updatePersonnelTrail(personnel.user_id)
@@ -432,11 +466,14 @@ export function LiveTrackingMap({
       })
 
       if (latestLocations.size > 0 && map.current) {
+        console.log('🗺️ Fitting map bounds to show all markers')
         const bounds = new maplibregl.LngLatBounds()
         latestLocations.forEach(location => {
           bounds.extend([location.longitude, location.latitude])
         })
         map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 })
+      } else {
+        console.warn('⚠️ No locations to display on map')
       }
     }
 
@@ -453,7 +490,12 @@ export function LiveTrackingMap({
           table: 'gps_locations'
         },
         async (payload) => {
-          console.log('🔔 GPS Insert Event:', payload)
+          console.log('🔔 GPS Insert Event received:', {
+            user_id: payload.new.user_id,
+            lat: payload.new.latitude,
+            lng: payload.new.longitude,
+            task_id: payload.new.task_id
+          })
           
           const newLocation = payload.new as any
 
@@ -462,6 +504,8 @@ export function LiveTrackingMap({
             console.warn('⚠️ GPS location without user_id, skipping')
             return
           }
+
+          console.log('📡 Fetching profile for user:', newLocation.user_id)
 
           // Fetch profile and task data
           const { data: profile, error: profileError } = await supabase
@@ -474,6 +518,8 @@ export function LiveTrackingMap({
             console.error('❌ Profile fetch error:', profileError)
             return
           }
+
+          console.log('✅ Profile found:', profile.full_name)
 
           // Fetch task data if task_id exists
           let taskData = null
