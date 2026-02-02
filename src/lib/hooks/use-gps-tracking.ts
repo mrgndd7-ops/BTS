@@ -76,7 +76,7 @@ export function useGPSTracking(taskId?: string | null) {
     } catch (err) {
       console.error('❌ GPS kaydetme hatası:', err)
     }
-  }, [user?.id, supabase])
+  }, [user?.id]) // FIXED: Removed supabase from dependencies
 
   /**
    * Radar.io ile tek seferlik konum al
