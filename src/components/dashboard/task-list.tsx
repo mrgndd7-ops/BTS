@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Clock, Play, Square, Loader2 } from 'lucide-react'
+import { Clock, Play, Square, Loader2, AlertCircle } from 'lucide-react'
 
 interface Task {
   id: string
@@ -22,118 +23,15 @@ export function TaskList() {
   const [loading, setLoading] = useState(true)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
-  const [isTracking, setIsTracking] = useState(false)
   
-  // GPS tracking methods (will be initialized on client side)
-  const gpsMethodsRef = useRef<{
-    startTracking: () => Promise<boolean>
-    stopTracking: () => void
-  } | null>(null)
-  
-  // Initialize GPS tracking on client side only
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !gpsMethodsRef.current) {
-      import('@/lib/hooks/use-gps-tracking').then(module => {
-        // We'll use Radar directly instead of the hook to avoid hook ordering issues
-        import('@/lib/radar/client').then(radarModule => {
-          const { initializeRadar, getRadar } = radarModule
-          
-          gpsMethodsRef.current = {
-            startTracking: async () => {
-              try {
-                console.log('🚀 GPS başlatılıyor...')
-                
-                const initialized = initializeRadar()
-                if (!initialized) {
-                  console.error('❌ Radar başlatılamadı')
-                  return false
-                }
-                
-                const Radar = getRadar()
-                if (!Radar) {
-                  console.error('❌ Radar SDK yok')
-                  return false
-                }
-                
-                // İlk konumu al
-                const result = await Radar.trackOnce()
-                if (!result.location) {
-                  console.error('❌ Konum alınamadı')
-                  return false
-                }
-                
-                console.log('✅ GPS başlatıldı:', result.location)
-                
-                // Supabase'e kaydet
-                if (user?.id && activeTaskId) {
-                  const supabase = createClient()
-                  const deviceId = `radar-web-${user.id.slice(0, 8)}`
-                  
-                  await supabase.from('gps_locations').insert({
-                    device_id: deviceId,
-                    user_id: user.id,
-                    task_id: activeTaskId,
-                    latitude: result.location.latitude,
-                    longitude: result.location.longitude,
-                    accuracy: result.location.accuracy || 0,
-                    recorded_at: new Date().toISOString()
-                  })
-                  
-                  console.log('✅ İlk konum kaydedildi')
-                  
-                  // Her 5 saniyede tracking
-                  const interval = setInterval(async () => {
-                    try {
-                      const trackResult = await Radar.trackOnce()
-                      if (trackResult.location && user?.id) {
-                        await supabase.from('gps_locations').insert({
-                          device_id: deviceId,
-                          user_id: user.id,
-                          task_id: activeTaskId,
-                          latitude: trackResult.location.latitude,
-                          longitude: trackResult.location.longitude,
-                          accuracy: trackResult.location.accuracy || 0,
-                          recorded_at: new Date().toISOString()
-                        })
-                        console.log('📍 GPS güncellendi')
-                      }
-                    } catch (err) {
-                      console.error('❌ GPS tracking error:', err)
-                    }
-                  }, 5000)
-                  
-                  // Store interval ID for cleanup
-                  ;(gpsMethodsRef.current as any).intervalId = interval
-                }
-                
-                setIsTracking(true)
-                return true
-              } catch (err) {
-                console.error('❌ GPS start error:', err)
-                return false
-              }
-            },
-            stopTracking: () => {
-              console.log('🛑 GPS durduruluyor...')
-              if ((gpsMethodsRef.current as any)?.intervalId) {
-                clearInterval((gpsMethodsRef.current as any).intervalId)
-              }
-              setIsTracking(false)
-              console.log('✅ GPS durduruldu')
-            }
-          }
-        })
-      })
-    }
-  }, [user?.id, activeTaskId])
-  
-  const startTracking = async () => {
-    return gpsMethodsRef.current?.startTracking() || false
-  }
-  
-  const stopTracking = () => {
-    gpsMethodsRef.current?.stopTracking()
-  }
+  // 🔥 Use the proper GPS tracking hook with improved permission handling
+  const {
+    isTracking,
+    error: gpsError,
+    permissionStatus,
+    startTracking,
+    stopTracking
+  } = useGPSTracking(activeTaskId)
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -180,39 +78,64 @@ export function TaskList() {
     try {
       console.log('🚀 Görev başlatılıyor:', taskId)
       
-      // 1. GPS tracking başlat
-      setActiveTaskId(taskId)
-      const gpsStarted = await startTracking()
-      
-      if (!gpsStarted) {
-        throw new Error('GPS izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
-      }
-      
-      console.log('✅ GPS başlatıldı')
-      
-      // 2. Task status güncelle
+      // 1. ÖNCE task status'ü güncelle (GPS başlamadan önce)
       const supabase = createClient()
-      const { error } = await supabase
+      console.log('📝 Task durumu güncelleniyor...')
+      
+      const { error: updateError, data: updatedTask } = await supabase
         .from('tasks')
         .update({ 
           status: 'in_progress',
           started_at: new Date().toISOString() 
         })
         .eq('id', taskId)
+        .select()
+        .single()
       
-      if (error) throw error
+      if (updateError) {
+        console.error('❌ Task güncelleme hatası:', updateError)
+        throw new Error('Görev durumu güncellenemedi: ' + updateError.message)
+      }
       
-      console.log('✅ Task güncellendi')
+      console.log('✅ Task güncellendi:', updatedTask)
       
-      // 3. Local state güncelle
+      // 2. Local state güncelle (UI hemen değişsin)
       setTasks(prev => prev.map(t => 
         t.id === taskId ? { ...t, status: 'in_progress' } : t
       ))
+      
+      console.log('✅ UI güncellendi - Görev artık "Aktif" görünmeli')
+      
+      // 3. SONRA GPS tracking başlat
+      console.log('📍 GPS başlatılıyor...')
+      setActiveTaskId(taskId) // Bu activeTaskId'yi useGPSTracking hook'una geçirir
+      
+      // Hook içindeki startTracking fonksiyonu çağrılacak
+      setTimeout(async () => {
+        const gpsStarted = await startTracking()
+        
+        if (!gpsStarted) {
+          console.warn('⚠️ GPS başlatılamadı ama görev aktif')
+          // GPS başlamazsa bile görev aktif kalabilir
+          alert('GPS izni alınamadı veya reddedildi. Görev aktif ama konum takibi çalışmıyor.\n\n' + 
+                'Tarayıcı ayarlarından konum iznini kontrol edin.')
+          return
+        }
+        
+        console.log('✅ GPS başlatıldı - Her 5 saniyede konum gönderiliyor')
+      }, 100) // activeTaskId state güncellemesinin tamamlanması için kısa bir gecikme
       
     } catch (err: any) {
       console.error('❌ Görev başlatma hatası:', err)
       alert(err.message || 'Görev başlatılamadı')
       setActiveTaskId(null)
+      
+      // Hata olursa task'ı geri al
+      const supabase = createClient()
+      await supabase
+        .from('tasks')
+        .update({ status: 'assigned' })
+        .eq('id', taskId)
     } finally {
       setProcessingTask(null)
     }
@@ -224,8 +147,11 @@ export function TaskList() {
       console.log('🛑 Görev durduruluyor:', taskId)
       
       // 1. GPS durdur
+      console.log('🛑 GPS durduruluyor...')
       stopTracking()
       setActiveTaskId(null)
+      
+      console.log('✅ GPS durduruldu')
       
       console.log('✅ GPS durduruldu')
       
@@ -275,6 +201,42 @@ export function TaskList() {
 
   return (
     <div className="space-y-4">
+      {/* GPS Error Alert */}
+      {gpsError && (
+        <Card className="bg-red-900/20 border-red-700">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-red-400 mb-1">GPS Hatası</h4>
+                <p className="text-sm text-red-300">{gpsError}</p>
+                {permissionStatus === 'denied' && (
+                  <p className="text-xs text-red-400 mt-2">
+                    Tarayıcı adres çubuğundaki kilit ikonuna tıklayıp konum iznini açın.
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* GPS Tracking Status */}
+      {isTracking && activeTaskId && (
+        <Card className="bg-green-900/20 border-green-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse" />
+              <div className="flex-1">
+                <p className="text-sm text-green-300 font-medium">
+                  GPS Tracking Aktif - Konum her 5 saniyede güncelleniyor
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {tasks.map((task) => (
         <Card key={task.id} className="bg-slate-800/40 border-slate-700">
           <CardContent className="p-4">
