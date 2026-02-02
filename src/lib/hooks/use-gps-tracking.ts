@@ -16,6 +16,9 @@ export interface LocationData {
 }
 
 export function useGPSTracking(taskId?: string | null) {
+  // 🔥 CRITICAL: Only run on client side
+  const [isClient, setIsClient] = useState(false)
+  
   const supabase = createClient()
   const { user } = useAuth()
   
@@ -26,6 +29,11 @@ export function useGPSTracking(taskId?: string | null) {
   
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const currentTaskIdRef = useRef<string | null>(taskId || null)
+  
+  // Detect client-side mounting
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Update task ID ref when it changes
   useEffect(() => {
@@ -82,13 +90,19 @@ export function useGPSTracking(taskId?: string | null) {
    * Radar.io ile tek seferlik konum al
    */
   const trackOnce = useCallback(async (): Promise<LocationData | null> => {
-    const Radar = getRadar()
-    if (!Radar) {
-      setError('Radar.io SDK yüklenemedi')
+    // 🔥 CRITICAL: Client-side only
+    if (!isClient || typeof window === 'undefined') {
+      console.warn('⚠️ trackOnce called on server-side, skipping')
       return null
     }
-
+    
     try {
+      const Radar = getRadar()
+      if (!Radar) {
+        setError('Radar.io SDK yüklenemedi')
+        return null
+      }
+
       setError(null)
 
       const result = await Radar.trackOnce()
@@ -126,16 +140,22 @@ export function useGPSTracking(taskId?: string | null) {
       setError(errorMessage)
       return null
     }
-  }, [saveLocationToDatabase])
+  }, [isClient, saveLocationToDatabase])
 
   /**
    * Periyodik GPS tracking başlat (her 5 saniyede bir - daha sık güncelleme)
    */
   const startTracking = useCallback(async (): Promise<boolean> => {
+    // 🔥 CRITICAL: Client-side only
+    if (!isClient || typeof window === 'undefined') {
+      console.warn('⚠️ startTracking called on server-side, skipping')
+      return false
+    }
+    
     console.log('🚀 GPS Tracking başlatılıyor...')
     
     // ⚠️ HTTPS kontrolü
-    if (typeof window !== 'undefined' && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
       setError('GPS tracking için HTTPS gereklidir. Lütfen Vercel URL\'inden test edin.')
       console.error('❌ HTTPS gerekli - şu anki protocol:', window.location.protocol)
       return false
@@ -180,7 +200,7 @@ export function useGPSTracking(taskId?: string | null) {
     }, 5000) // 5 saniye
 
     return true
-  }, [trackOnce, checkPermission])
+  }, [isClient, trackOnce, checkPermission])
 
   /**
    * GPS tracking'i durdur
@@ -199,6 +219,12 @@ export function useGPSTracking(taskId?: string | null) {
    * Browser Geolocation API kullanarak gerçek izin kontrolü
    */
   const checkPermission = useCallback(async (): Promise<boolean> => {
+    // 🔥 CRITICAL: Client-side only
+    if (!isClient || typeof window === 'undefined' || typeof navigator === 'undefined') {
+      console.warn('⚠️ checkPermission called on server-side, skipping')
+      return false
+    }
+    
     try {
       console.log('🔐 GPS izni kontrol ediliyor...')
       
@@ -261,7 +287,7 @@ export function useGPSTracking(taskId?: string | null) {
       console.error('❌ Permission check error:', err)
       return true // Safari ve eski tarayıcılar için fallback
     }
-  }, [])
+  }, [isClient])
 
   /**
    * Component unmount'ta tracking'i durdur

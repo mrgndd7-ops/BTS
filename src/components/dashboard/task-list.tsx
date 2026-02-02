@@ -24,14 +24,24 @@ export function TaskList() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
   
-  // 🔥 Use the proper GPS tracking hook with improved permission handling
+  // 🔥 CRITICAL: Always call hooks unconditionally at the top level
+  // Pass null initially, update via setActiveTaskId when task starts
+  const gpsTracking = useGPSTracking(activeTaskId)
+  
+  // Destructure for easier access
   const {
     isTracking,
     error: gpsError,
     permissionStatus,
     startTracking,
     stopTracking
-  } = useGPSTracking(activeTaskId)
+  } = gpsTracking || {
+    isTracking: false,
+    error: null,
+    permissionStatus: 'prompt' as const,
+    startTracking: async () => false,
+    stopTracking: () => {}
+  }
 
   useEffect(() => {
     const loadTasks = async () => {
