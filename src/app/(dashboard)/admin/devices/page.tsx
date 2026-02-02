@@ -31,6 +31,7 @@ interface Profile {
   email: string
   role: string
   status: string
+  municipality_id?: string
 }
 
 export default function DevicesPage() {
@@ -50,37 +51,39 @@ export default function DevicesPage() {
 
   const loadUnmappedDevices = async () => {
     // Get all GPS locations grouped by device_id
-    const { data } = await supabase
+    const { data: gpsData } = await supabase
       .from('gps_locations')
-      .select('device_id, recorded_at, latitude, longitude, battery_level, user_id')
+      .select('device_id, recorded_at, latitude, longitude, battery_level')
       .not('device_id', 'is', null)
       .order('recorded_at', { ascending: false }) as { data: GpsLocation[] | null }
 
-    if (!data) return
+    if (!gpsData) return
 
-    // Group by device_id and check if already mapped
-    const deviceMap = new Map<string, { locations: any[], hasMappedLocation: boolean }>()
+    // Get existing device mappings
+    const { data: existingMappings } = await supabase
+      .from('device_mappings')
+      .select('device_id, user_id, is_active')
+      .eq('is_active', true)
+
+    const mappingMap = new Map<string, string>()
+    existingMappings?.forEach(m => {
+      mappingMap.set(m.device_id, m.user_id)
+    })
+
+    // Group by device_id
+    const deviceMap = new Map<string, { locations: any[] }>()
     
-    data.forEach(location => {
+    gpsData.forEach(location => {
       if (!location.device_id) return
       
       if (!deviceMap.has(location.device_id)) {
-        deviceMap.set(location.device_id, { 
-          locations: [], 
-          hasMappedLocation: false 
-        })
+        deviceMap.set(location.device_id, { locations: [] })
       }
       
-      const deviceData = deviceMap.get(location.device_id)!
-      deviceData.locations.push(location)
-      
-      // Check if this device has any mapped location
-      if (location.user_id !== null) {
-        deviceData.hasMappedLocation = true
-      }
+      deviceMap.get(location.device_id)!.locations.push(location)
     })
 
-    // Build devices list (show both mapped and unmapped for transparency)
+    // Build devices list
     const devices: (UnmappedDevice & { is_mapped: boolean, mapped_user_id?: string })[] = []
     
     deviceMap.forEach((deviceData, deviceId) => {
@@ -90,6 +93,7 @@ export default function DevicesPage() {
       
       const latest = sortedLocations[0]
       const first = sortedLocations[sortedLocations.length - 1]
+      const isMapped = mappingMap.has(deviceId)
       
       devices.push({
         device_id: deviceId,
@@ -101,8 +105,8 @@ export default function DevicesPage() {
           longitude: latest.longitude,
           battery_level: latest.battery_level
         },
-        is_mapped: deviceData.hasMappedLocation,
-        mapped_user_id: latest.user_id || undefined
+        is_mapped: isMapped,
+        mapped_user_id: isMapped ? mappingMap.get(deviceId) : undefined
       })
     })
 
@@ -120,7 +124,7 @@ export default function DevicesPage() {
   const loadProfiles = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, email, role, status')
+      .select('id, full_name, email, role, status, municipality_id')
       .in('role', ['worker', 'driver'])
       .order('full_name')
 
@@ -144,16 +148,37 @@ export default function DevicesPage() {
   const saveMappings = async () => {
     setSaving(true)
     try {
-      // Update user_id for existing locations with this device_id
-      const locationUpdates = Array.from(mappings.entries()).map(([deviceId, userId]) => {
+      // Get current user profile for municipality_id
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('id, municipality_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!adminProfile) throw new Error('Profile not found')
+
+      // Insert/Update device_mappings
+      const mappingInserts = Array.from(mappings.entries()).map(([deviceId, userId]) => {
+        // Get user's municipality_id
+        const userProfile = profiles.find(p => p.id === userId)
+        
         return supabase
-          .from('gps_locations')
-          .update({ user_id: userId })
-          .eq('device_id', deviceId)
-          .is('user_id', null)
+          .from('device_mappings')
+          .upsert({
+            device_id: deviceId,
+            user_id: userId,
+            municipality_id: userProfile?.municipality_id || adminProfile.municipality_id,
+            mapped_by: adminProfile.id,
+            is_active: true
+          }, {
+            onConflict: 'device_id'
+          })
       })
 
-      await Promise.all(locationUpdates)
+      await Promise.all(mappingInserts)
 
       // Reload data
       await loadProfiles()
@@ -175,10 +200,10 @@ export default function DevicesPage() {
     }
 
     try {
-      // Set user_id to null for all locations with this device_id
+      // Set is_active = false in device_mappings
       await supabase
-        .from('gps_locations')
-        .update({ user_id: null })
+        .from('device_mappings')
+        .update({ is_active: false })
         .eq('device_id', deviceId)
 
       await loadProfiles()

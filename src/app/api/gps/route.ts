@@ -128,24 +128,26 @@ export async function POST(request: NextRequest) {
 
     devLog('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
-    // Find user by checking existing gps_locations with this device_id
-    const { data: existingLocation } = await supabaseAdmin
-      .from('gps_locations')
-      .select('user_id, profiles:user_id(id, full_name, municipality_id, role)')
+    // Find user by checking device_mappings table
+    const { data: deviceMapping } = await supabaseAdmin
+      .from('device_mappings')
+      .select('user_id, municipality_id, profiles:user_id(id, full_name, municipality_id, role)')
       .eq('device_id', deviceId)
-      .not('user_id', 'is', null)
-      .limit(1)
+      .eq('is_active', true)
       .single()
 
-    type LocationWithProfile = {
-      user_id: string | null
+    type DeviceMappingWithProfile = {
+      user_id: string
+      municipality_id: string | null
       profiles: ProfileRelation | null
     }
 
-    const profile = (existingLocation as LocationWithProfile | null)?.profiles
+    const mappingData = deviceMapping as DeviceMappingWithProfile | null
+    const profile = mappingData?.profiles
 
     if (!profile) {
       console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
+      console.warn(`⚠️ Admin needs to map this device at /admin/devices`)
     } else {
       devLog('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
     }
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
     // Prepare GPS location data with validation
     const gpsData: GpsLocationInsert = {
       user_id: profile?.id || null,
-      municipality_id: profile?.municipality_id || null,
+      municipality_id: mappingData?.municipality_id || profile?.municipality_id || null,
       latitude,
       longitude,
       accuracy: accuracy ? parseFloat(accuracy) : null,
@@ -286,24 +288,26 @@ export async function GET(request: NextRequest) {
 
       devLog('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
-      // Find user by checking existing gps_locations with this device_id
-      const { data: existingLocation } = await supabaseAdmin
-        .from('gps_locations')
-        .select('user_id, profiles:user_id(id, full_name, municipality_id, role)')
+      // Find user by checking device_mappings table
+      const { data: deviceMapping } = await supabaseAdmin
+        .from('device_mappings')
+        .select('user_id, municipality_id, profiles:user_id(id, full_name, municipality_id, role)')
         .eq('device_id', deviceId)
-        .not('user_id', 'is', null)
-        .limit(1)
+        .eq('is_active', true)
         .single()
 
-      type LocationWithProfile = {
-        user_id: string | null
+      type DeviceMappingWithProfile = {
+        user_id: string
+        municipality_id: string | null
         profiles: ProfileRelation | null
       }
 
-      const profile = (existingLocation as LocationWithProfile | null)?.profiles
+      const mappingData = deviceMapping as DeviceMappingWithProfile | null
+      const profile = mappingData?.profiles
 
       if (!profile) {
         console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
+        console.warn(`⚠️ Admin needs to map this device at /admin/devices`)
       } else {
         devLog('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
       }
@@ -311,7 +315,7 @@ export async function GET(request: NextRequest) {
       // Prepare GPS data with validation
       const gpsData: GpsLocationInsert = {
         user_id: profile?.id || null,
-        municipality_id: profile?.municipality_id || null,
+        municipality_id: mappingData?.municipality_id || profile?.municipality_id || null,
         latitude,
         longitude,
         accuracy: accuracy ? parseFloat(accuracy) : null,
