@@ -6,10 +6,8 @@ import { StatsCard } from '@/components/dashboard/stats-card'
 import { ClipboardList, CheckCircle, Clock, Award, MapPin, Navigation } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
 import Link from 'next/link'
 
 interface WorkerStats {
@@ -30,13 +28,6 @@ interface TodayTask {
 export default function WorkerDashboardPage() {
   const supabase = createClient()
   const { user } = useAuth()
-  const { 
-    isTracking, 
-    currentLocation, 
-    error: gpsError, 
-    startTracking, 
-    stopTracking 
-  } = useGPSTracking()
   
   const [stats, setStats] = useState<WorkerStats>({
     pending: 0,
@@ -155,48 +146,20 @@ export default function WorkerDashboardPage() {
         description="Hoş geldiniz! Günlük görevlerinizi buradan takip edebilirsiniz."
       />
 
-      {/* GPS Tracking Status */}
+      {/* GPS Info - Removed manual controls, GPS now auto-starts with tasks */}
       <Card className="border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-purple-500/5">
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-full ${isTracking ? 'bg-green-500/10' : 'bg-slate-700'}`}>
-                <Navigation className={`h-5 w-5 ${isTracking ? 'text-green-500' : 'text-slate-400'}`} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white">GPS Konum Takibi</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {isTracking ? (
-                    <>
-                      Aktif - Konumunuz her 10 saniyede güncelleniyor
-                      {currentLocation && (
-                        <span className="ml-2 text-blue-400">
-                          ({currentLocation.accuracy.toFixed(0)}m hassasiyet)
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    'Pasif - GPS tracking başlatılmadı'
-                  )}
-                </p>
-                {gpsError && (
-                  <p className="text-xs text-red-400 mt-1">⚠️ {gpsError}</p>
-                )}
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-full bg-blue-500/10">
+              <Navigation className="h-5 w-5 text-blue-500" />
             </div>
-            <div className="flex items-center gap-3">
-              <Badge variant={isTracking ? 'default' : 'secondary'} className={isTracking ? 'bg-green-500 hover:bg-green-600' : ''}>
-                {isTracking ? 'Aktif' : 'Pasif'}
-              </Badge>
-              <Button
-                onClick={isTracking ? stopTracking : startTracking}
-                variant={isTracking ? 'outline' : 'default'}
-                size="sm"
-                className={isTracking ? 'border-red-500 text-red-500 hover:bg-red-500/10' : 'bg-blue-500 hover:bg-blue-600'}
-              >
-                {isTracking ? 'Durdur' : 'Başlat'}
-              </Button>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">GPS Konum Takibi</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Gorev baslattiginizda GPS tracking otomatik olarak baslayacak
+              </p>
             </div>
+            <Badge variant="secondary">Gorev ile Aktif</Badge>
           </div>
         </CardContent>
       </Card>
