@@ -48,8 +48,6 @@ export default function PersonnelPage() {
         console.log('👥 Personel listesi yükleniyor...')
         console.log('🌍 Multi-tenant: DEVREDİŞİ - Tüm Türkiye gösteriliyor')
         
-        setLoading(true)
-        
         // Build query - NO MUNICIPALITY FILTER
         let query = supabase
           .from('profiles')
