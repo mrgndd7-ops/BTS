@@ -97,76 +97,103 @@ export default function PersonnelDetailPage() {
 
   // Haritaya lokasyonları çiz
   useEffect(() => {
-    if (!map || locations.length === 0) return
+    // 🔥 CRITICAL: Map instance ve loaded kontrolü
+    if (!map || !map.loaded || !map.loaded() || locations.length === 0) return
+
+    console.log('🗺️ Drawing personnel locations on map...')
 
     const latestLocation = locations[0]
 
-    // Personel marker'ı
-    const el = document.createElement('div')
-    el.innerHTML = `
-      <div class="relative">
-        <div class="absolute -inset-1 bg-blue-500 rounded-full animate-ping opacity-75"></div>
-        <div class="relative w-12 h-12 bg-blue-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-          <span class="text-white text-sm font-bold">${personnel?.full_name.charAt(0)}</span>
-        </div>
-      </div>
-    `
-
-    const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
-      <div class="text-sm">
-        <p class="font-bold">${personnel?.full_name}</p>
-        <p class="text-xs text-slate-400">
-          Son güncelleme: ${new Date(latestLocation.recorded_at).toLocaleString('tr-TR')}
-        </p>
-        <p class="text-xs text-slate-400">
-          Hassasiyet: ${Math.round(latestLocation.accuracy)}m
-        </p>
-      </div>
-    `)
-
-    new maplibregl.Marker({ element: el })
-      .setLngLat([latestLocation.longitude, latestLocation.latitude])
-      .setPopup(popup)
-      .addTo(map)
-
-    // Rota çizgisi (son 50 konum)
-    if (locations.length > 1) {
-      const routeCoordinates = locations
-        .slice(0, 50)
-        .map((loc) => [loc.longitude, loc.latitude])
-        .reverse()
-
-      if (!map.getSource('personnel-trail')) {
-        map.addSource('personnel-trail', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: routeCoordinates
-            }
-          }
-        })
-
-        map.addLayer({
-          id: 'personnel-trail-layer',
-          type: 'line',
-          source: 'personnel-trail',
-          paint: {
-            'line-color': '#3b82f6',
-            'line-width': 3,
-            'line-opacity': 0.6
-          }
-        })
+    // 🔥 CRITICAL: Wait for map to be fully loaded before adding sources/layers
+    const drawOnMap = () => {
+      // Double check map is still valid
+      if (!map || !map.getSource) {
+        console.warn('⚠️ Map not ready, skipping draw')
+        return
       }
+
+      // Personel marker'ı
+      const el = document.createElement('div')
+      el.innerHTML = `
+        <div class="relative">
+          <div class="absolute -inset-1 bg-blue-500 rounded-full animate-ping opacity-75"></div>
+          <div class="relative w-12 h-12 bg-blue-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+            <span class="text-white text-sm font-bold">${personnel?.full_name.charAt(0)}</span>
+          </div>
+        </div>
+      `
+
+      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+        <div class="text-sm">
+          <p class="font-bold">${personnel?.full_name}</p>
+          <p class="text-xs text-slate-400">
+            Son güncelleme: ${new Date(latestLocation.recorded_at).toLocaleString('tr-TR')}
+          </p>
+          <p class="text-xs text-slate-400">
+            Hassasiyet: ${Math.round(latestLocation.accuracy)}m
+          </p>
+        </div>
+      `)
+
+      new maplibregl.Marker({ element: el })
+        .setLngLat([latestLocation.longitude, latestLocation.latitude])
+        .setPopup(popup)
+        .addTo(map)
+
+      // Rota çizgisi (son 50 konum)
+      if (locations.length > 1) {
+        const routeCoordinates = locations
+          .slice(0, 50)
+          .map((loc) => [loc.longitude, loc.latitude])
+          .reverse()
+
+        // 🔥 CRITICAL: Check if getSource exists before calling
+        if (map.getSource && !map.getSource('personnel-trail')) {
+          map.addSource('personnel-trail', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: routeCoordinates
+              }
+            }
+          })
+
+          map.addLayer({
+            id: 'personnel-trail-layer',
+            type: 'line',
+            source: 'personnel-trail',
+            paint: {
+              'line-color': '#3b82f6',
+              'line-width': 3,
+              'line-opacity': 0.6
+            }
+          })
+        }
+      }
+
+      // Konuma zoom
+      map.flyTo({
+        center: [latestLocation.longitude, latestLocation.latitude],
+        zoom: 15
+      })
     }
 
-    // Konuma zoom
-    map.flyTo({
-      center: [latestLocation.longitude, latestLocation.latitude],
-      zoom: 15
-    })
+    // 🔥 CRITICAL: If map is already loaded, draw immediately. Otherwise wait for load event.
+    if (map.loaded && map.loaded()) {
+      drawOnMap()
+    } else {
+      map.on('load', drawOnMap)
+    }
+
+    // Cleanup
+    return () => {
+      if (map && map.off) {
+        map.off('load', drawOnMap)
+      }
+    }
   }, [map, locations, personnel])
 
   if (!personnel) {
