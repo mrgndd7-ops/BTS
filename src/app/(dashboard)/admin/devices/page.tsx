@@ -21,6 +21,8 @@ interface UnmappedDevice {
     longitude: number
     battery_level?: number
   }
+  is_mapped?: boolean
+  mapped_user_id?: string
 }
 
 interface Profile {
@@ -47,7 +49,7 @@ export default function DevicesPage() {
   }, [])
 
   const loadUnmappedDevices = async () => {
-    // Get all unique device_ids from gps_locations where user_id is null
+    // Get all GPS locations grouped by device_id
     const { data } = await supabase
       .from('gps_locations')
       .select('device_id, recorded_at, latitude, longitude, battery_level, user_id')
@@ -56,20 +58,33 @@ export default function DevicesPage() {
 
     if (!data) return
 
-    // Group by device_id
-    const deviceMap = new Map<string, any[]>()
+    // Group by device_id and check if already mapped
+    const deviceMap = new Map<string, { locations: any[], hasMappedLocation: boolean }>()
+    
     data.forEach(location => {
       if (!location.device_id) return
+      
       if (!deviceMap.has(location.device_id)) {
-        deviceMap.set(location.device_id, [])
+        deviceMap.set(location.device_id, { 
+          locations: [], 
+          hasMappedLocation: false 
+        })
       }
-      deviceMap.get(location.device_id)!.push(location)
+      
+      const deviceData = deviceMap.get(location.device_id)!
+      deviceData.locations.push(location)
+      
+      // Check if this device has any mapped location
+      if (location.user_id !== null) {
+        deviceData.hasMappedLocation = true
+      }
     })
 
-    // Build unmapped devices list
-    const devices: UnmappedDevice[] = []
-    deviceMap.forEach((locations, deviceId) => {
-      const sortedLocations = locations.sort((a, b) => 
+    // Build devices list (show both mapped and unmapped for transparency)
+    const devices: (UnmappedDevice & { is_mapped: boolean, mapped_user_id?: string })[] = []
+    
+    deviceMap.forEach((deviceData, deviceId) => {
+      const sortedLocations = deviceData.locations.sort((a, b) => 
         new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
       )
       
@@ -80,18 +95,26 @@ export default function DevicesPage() {
         device_id: deviceId,
         first_seen: first.recorded_at,
         last_seen: latest.recorded_at,
-        location_count: locations.length,
+        location_count: deviceData.locations.length,
         last_location: {
           latitude: latest.latitude,
           longitude: latest.longitude,
           battery_level: latest.battery_level
-        }
+        },
+        is_mapped: deviceData.hasMappedLocation,
+        mapped_user_id: latest.user_id || undefined
       })
     })
 
-    setUnmappedDevices(devices.sort((a, b) => 
-      new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime()
-    ))
+    // Sort: unmapped first, then by last seen
+    const sorted = devices.sort((a, b) => {
+      if (a.is_mapped !== b.is_mapped) {
+        return a.is_mapped ? 1 : -1 // unmapped first
+      }
+      return new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime()
+    })
+
+    setUnmappedDevices(sorted as any)
   }
 
   const loadProfiles = async () => {
@@ -241,20 +264,33 @@ export default function DevicesPage() {
                   unmappedDevices.map(device => {
                     const isActive = (Date.now() - new Date(device.last_seen).getTime()) / 60000 < 10
                     const selectedUserId = mappings.get(device.device_id)
+                    const mappedProfile = device.mapped_user_id ? profiles.find(p => p.id === device.mapped_user_id) : null
 
                     return (
                       <div 
                         key={device.device_id}
-                        className="p-4 bg-slate-800/50 rounded-lg border border-slate-700"
+                        className={`p-4 rounded-lg border ${
+                          device.is_mapped 
+                            ? 'bg-green-500/5 border-green-500/20' 
+                            : 'bg-slate-800/50 border-slate-700'
+                        }`}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-slate-500'}`} />
                             <span className="font-mono text-sm text-white">{device.device_id}</span>
                           </div>
-                          <Badge variant={isActive ? 'success' : 'default'}>
-                            {isActive ? 'Aktif' : 'Pasif'}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={isActive ? 'success' : 'default'}>
+                              {isActive ? 'Aktif' : 'Pasif'}
+                            </Badge>
+                            {device.is_mapped && (
+                              <Badge className="bg-green-500/10 text-green-400 border-green-500/30">
+                                <LinkIcon className="h-3 w-3 mr-1" />
+                                Eşleştirilmiş
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
                         <div className="text-xs text-slate-400 space-y-1 mb-3">
@@ -263,20 +299,37 @@ export default function DevicesPage() {
                           {device.last_location.battery_level && (
                             <div>Batarya: {Math.round(device.last_location.battery_level)}%</div>
                           )}
+                          {mappedProfile && (
+                            <div className="text-green-400 font-medium">
+                              → {mappedProfile.full_name}
+                            </div>
+                          )}
                         </div>
 
-                        <select
-                          value={selectedUserId || ''}
-                          onChange={(e) => handleMapping(device.device_id, e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Personel seçin...</option>
-                          {unmappedProfiles.map(profile => (
-                            <option key={profile.id} value={profile.id}>
-                              {profile.full_name} - {profile.role}
-                            </option>
-                          ))}
-                        </select>
+                        {device.is_mapped ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => unlinkDevice(device.device_id)}
+                            className="w-full text-red-400 border-red-500/30 hover:bg-red-500/10"
+                          >
+                            <Unlink className="mr-2 h-4 w-4" />
+                            Eşleştirmeyi Kaldır
+                          </Button>
+                        ) : (
+                          <select
+                            value={selectedUserId || ''}
+                            onChange={(e) => handleMapping(device.device_id, e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Personel seçin...</option>
+                            {unmappedProfiles.map(profile => (
+                              <option key={profile.id} value={profile.id}>
+                                {profile.full_name} - {profile.role}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     )
                   })
