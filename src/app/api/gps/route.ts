@@ -6,6 +6,12 @@ import type { Database } from '@/types/database'
 /**
  * GPS Tracking API Endpoint
  * 
+ * ⚠️ LEGACY ENDPOINT - Şu anda kullanılmıyor
+ * Radar.io SDK browser-based tracking kullanıyor (useGPSTracking hook)
+ * 
+ * Bu endpoint gelecekte external GPS cihaz desteği için kullanılabilir.
+ * device_mappings tablosu 00017 migration'da kaldırıldı.
+ * 
  * Supports both GET and POST for GPS device compatibility
  * GET: Query string parameters
  * POST: Form data or JSON body
@@ -167,32 +173,15 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
-    // Find user by checking device_mappings table
-    console.log('🔍 Looking for device mapping:', deviceId)
-    const { data: deviceMapping, error: mappingError } = await supabaseAdmin
-      .from('device_mappings')
-      .select('user_id, municipality_id, profiles:user_id(id, full_name, municipality_id, role)')
-      .eq('device_id', deviceId)
-      .eq('is_active', true)
-      .single()
-
-    console.log('📊 Device mapping result:', { deviceMapping, mappingError })
-
-    type DeviceMappingWithProfile = {
-      user_id: string
-      municipality_id: string | null
-      profiles: ProfileRelation | null
-    }
-
-    const mappingData = deviceMapping as DeviceMappingWithProfile | null
-    const profile = mappingData?.profiles
-
-    if (!profile) {
-      console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
-      console.warn(`⚠️ Admin needs to map this device at /admin/personnel`)
-    } else {
-      console.log('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
-    }
+    // NOTE: device_mappings table removed in 00017_remove_traccar_fields.sql
+    // External devices not currently supported (using Radar.io browser SDK)
+    // Saving location with null user_id - will be ignored by frontend
+    
+    console.log('⚠️ External device GPS (no mapping support) - deviceId:', deviceId)
+    console.log('⚠️ Location will be saved but not displayed (browser tracking required)')
+    
+    const profile = null
+    const mappingData = null
 
     // Prepare GPS location data with validation
     const gpsData: GpsLocationInsert = {
@@ -335,29 +324,15 @@ export async function GET(request: NextRequest) {
 
       devLog('✅ Valid coordinates:', { latitude, longitude, recordedAt })
 
-      // Find user by checking device_mappings table
-      const { data: deviceMapping } = await supabaseAdmin
-        .from('device_mappings')
-        .select('user_id, municipality_id, profiles:user_id(id, full_name, municipality_id, role)')
-        .eq('device_id', deviceId)
-        .eq('is_active', true)
-        .single()
-
-      type DeviceMappingWithProfile = {
-        user_id: string
-        municipality_id: string | null
-        profiles: ProfileRelation | null
-      }
-
-      const mappingData = deviceMapping as DeviceMappingWithProfile | null
-      const profile = mappingData?.profiles
-
-      if (!profile) {
-        console.warn(`⚠️ Device ${deviceId} not mapped to any user - saving with null user_id`)
-        console.warn(`⚠️ Admin needs to map this device at /admin/devices`)
-      } else {
-        devLog('👤 Device mapped to user:', profile.full_name, '(', profile.id, ')')
-      }
+      // NOTE: device_mappings table removed in 00017_remove_traccar_fields.sql
+      // External devices not currently supported (using Radar.io browser SDK)
+      // Saving location with null user_id - will be ignored by frontend
+      
+      console.log('⚠️ External device GPS (no mapping support) - deviceId:', deviceId)
+      console.log('⚠️ Location will be saved but not displayed (browser tracking required)')
+      
+      const profile = null
+      const mappingData = null
 
       // Prepare GPS data with validation
       const gpsData: GpsLocationInsert = {

@@ -5,9 +5,9 @@ import { z } from 'zod'
  */
 
 export const taskCreateSchema = z.object({
-  route_id: z.string().uuid('Geçerli bir rota seçiniz'),
-  assigned_personnel: z.string().uuid().optional().nullable(),
-  scheduled_date: z.string().min(1, 'Görev tarihi gereklidir'),
+  route_id: z.string().uuid('Geçerli bir rota seçiniz').optional().nullable(),
+  assigned_to: z.string().uuid().optional().nullable(), // FIXED: assigned_personnel -> assigned_to
+  scheduled_start: z.string().min(1, 'Görev tarihi gereklidir').optional(), // FIXED: scheduled_date -> scheduled_start
   assigned_vehicle: z.string().optional().nullable(),
   scheduled_miles: z.number().positive().optional().nullable(),
   notes: z.string().max(500, 'Notlar en fazla 500 karakter olabilir').optional(),
@@ -17,9 +17,9 @@ export type TaskCreateInput = z.infer<typeof taskCreateSchema>
 
 export const taskUpdateSchema = z.object({
   route_id: z.string().uuid().optional(),
-  assigned_personnel: z.string().uuid().optional().nullable(),
-  scheduled_date: z.string().optional(),
-  status: z.enum(['beklemede', 'devam_ediyor', 'tamamlandi', 'iptal']).optional(),
+  assigned_to: z.string().uuid().optional().nullable(), // FIXED: assigned_personnel -> assigned_to
+  scheduled_start: z.string().optional(), // FIXED: scheduled_date -> scheduled_start
+  status: z.enum(['assigned', 'in_progress', 'completed', 'cancelled']).optional(), // FIXED: English values
   assigned_vehicle: z.string().optional().nullable(),
   scheduled_miles: z.number().positive().optional().nullable(),
   completed_miles: z.number().positive().optional().nullable(),
@@ -33,7 +33,7 @@ export const taskUpdateSchema = z.object({
 export type TaskUpdateInput = z.infer<typeof taskUpdateSchema>
 
 export const taskStatusUpdateSchema = z.object({
-  status: z.enum(['beklemede', 'devam_ediyor', 'tamamlandi', 'iptal'], {
+  status: z.enum(['assigned', 'in_progress', 'completed', 'cancelled'], { // FIXED: English values
     required_error: 'Durum seçimi gereklidir',
   }),
 })
@@ -41,8 +41,8 @@ export const taskStatusUpdateSchema = z.object({
 export type TaskStatusUpdateInput = z.infer<typeof taskStatusUpdateSchema>
 
 export const taskFilterSchema = z.object({
-  status: z.enum(['beklemede', 'devam_ediyor', 'tamamlandi', 'iptal']).optional(),
-  assigned_personnel: z.string().uuid().optional(),
+  status: z.enum(['assigned', 'in_progress', 'completed', 'cancelled']).optional(), // FIXED: English values
+  assigned_to: z.string().uuid().optional(), // FIXED: assigned_personnel -> assigned_to
   route_id: z.string().uuid().optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),

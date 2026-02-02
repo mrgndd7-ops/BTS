@@ -27,10 +27,6 @@ interface Personnel {
     longitude: number
     recorded_at: string
   } | null
-  device_mappings?: Array<{
-    device_id: string
-    is_active: boolean
-  }>
 }
 
 export default function PersonnelPage() {
@@ -79,8 +75,7 @@ export default function PersonnelPage() {
 
           return {
             ...person,
-            latest_location: latestLocation,
-            device_mappings: []
+            latest_location: latestLocation
           }
         })
       )

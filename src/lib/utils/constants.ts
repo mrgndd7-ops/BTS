@@ -11,30 +11,30 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]
 
-// Görev durumları
+// Görev durumları (UPDATED: English values to match database)
 export const TASK_STATUS = {
-  BEKLEMEDE: 'beklemede',
-  DEVAM_EDIYOR: 'devam_ediyor',
-  TAMAMLANDI: 'tamamlandi',
-  IPTAL: 'iptal',
+  ASSIGNED: 'assigned',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
 } as const
 
 export type TaskStatus = (typeof TASK_STATUS)[keyof typeof TASK_STATUS]
 
 // Görev durumu etiketleri
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  beklemede: 'Beklemede',
-  devam_ediyor: 'Devam Ediyor',
-  tamamlandi: 'Tamamlandı',
-  iptal: 'İptal',
+  assigned: 'Atandı',
+  in_progress: 'Devam Ediyor',
+  completed: 'Tamamlandı',
+  cancelled: 'İptal',
 }
 
 // Görev durumu renkleri
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  beklemede: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  devam_ediyor: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  tamamlandi: 'bg-green-500/10 text-green-500 border-green-500/20',
-  iptal: 'bg-red-500/10 text-red-500 border-red-500/20',
+  assigned: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+  in_progress: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  completed: 'bg-green-500/10 text-green-500 border-green-500/20',
+  cancelled: 'bg-red-500/10 text-red-500 border-red-500/20',
 }
 
 // Öncelik seviyeleri
