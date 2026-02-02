@@ -367,8 +367,8 @@ export function LiveTrackingMap({
 
   // Setup realtime subscription and initial load
   useEffect(() => {
-    // 🔥 CRITICAL: Only run once when map is loaded
-    if (!isLoaded) return
+    // 🔥 CRITICAL: Only run when map is loaded and ready
+    if (!isLoaded || !map.current) return
 
     console.log('🚀 Initializing GPS tracking map...')
 
@@ -575,7 +575,7 @@ export function LiveTrackingMap({
       console.log('🧹 Cleaning up GPS tracking subscription')
       supabase.removeChannel(channel)
     }
-  }, []) // 🔥 CRITICAL: Empty dependency array - subscription should only be created once
+  }, [isLoaded, isSuperAdmin, municipalityId, showTrails, updatePersonnelMarker, updatePersonnelTrail])
 
   return (
     <div className={cn('relative', className)}>
