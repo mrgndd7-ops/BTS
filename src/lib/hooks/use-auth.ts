@@ -114,6 +114,8 @@ export function useAuth() {
     department,
     employee_id,
   }: RegisterInput) => {
+    console.log('📝 Kayıt başlatılıyor:', { email, role, municipality_id })
+    
     // 1. Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -125,8 +127,16 @@ export function useAuth() {
       },
     })
 
-    if (authError) throw authError
-    if (!authData.user) throw new Error('Kullanici olusturulamadi')
+    if (authError) {
+      console.error('❌ Auth signUp hatası:', authError)
+      throw authError
+    }
+    if (!authData.user) {
+      console.error('❌ User oluşturulamadı')
+      throw new Error('Kullanici olusturulamadi')
+    }
+
+    console.log('✅ Auth user oluşturuldu:', authData.user.id)
 
     // 2. Get district from municipality
     const { data: municipalityData } = await supabase
@@ -136,6 +146,8 @@ export function useAuth() {
       .single<{ district: string }>()
 
     const district = municipalityData?.district || ''
+    
+    console.log('📍 Municipality bilgisi:', { municipality_id, district })
 
     // 3. Create profile immediately (don't rely on trigger)
     const { error: profileError } = await supabase
@@ -155,9 +167,18 @@ export function useAuth() {
       }] as any)
 
     if (profileError) {
-      console.error('Profile creation error:', profileError)
+      console.error('❌ Profile creation error:', profileError)
       throw new Error('Profil olusturulamadi: ' + profileError.message)
     }
+
+    console.log('✅ Profile oluşturuldu başarıyla!')
+    console.log('📊 Kayıt tamamlandı:', {
+      user_id: authData.user.id,
+      email,
+      role,
+      municipality_id,
+      full_name
+    })
 
     return authData
   }

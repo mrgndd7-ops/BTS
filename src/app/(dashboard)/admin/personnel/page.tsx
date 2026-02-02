@@ -41,6 +41,9 @@ export default function PersonnelPage() {
     if (!user) return
 
     const loadPersonnel = async () => {
+      console.log('👥 Personel listesi yükleniyor...')
+      console.log('🏢 Admin municipality_id:', profile?.municipality_id)
+      
       // Build query with municipality filter
       let query = supabase
         .from('profiles')
@@ -49,10 +52,19 @@ export default function PersonnelPage() {
       
       // Multi-tenant isolation: Only show personnel from same municipality
       if (profile?.municipality_id) {
+        console.log('🔒 Multi-tenant filter aktif:', profile.municipality_id)
         query = query.eq('municipality_id', profile.municipality_id)
+      } else {
+        console.warn('⚠️ Municipality ID yok! Tüm personeller gösterilecek!')
       }
       
-      const { data: profilesData } = await query.order('full_name')
+      const { data: profilesData, error: personnelError } = await query.order('full_name')
+      
+      if (personnelError) {
+        console.error('❌ Personel yükleme hatası:', personnelError)
+      }
+      
+      console.log('📋 Bulunan personel sayısı:', profilesData?.length || 0)
 
       if (!profilesData) {
         setLoading(false)
