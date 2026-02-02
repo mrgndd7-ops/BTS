@@ -16,12 +16,10 @@ export function resetClient() {
 }
 
 export function createClient() {
-  // Singleton pattern - aynı client'ı tekrar kullan (mobil için kritik)
-  if (browserClient) {
-    return browserClient
-  }
-
-  browserClient = createBrowserClient<Database>(
+  // CRITICAL FIX: Her zaman fresh client oluştur (logout sonrası session conflict önlemek için)
+  // Singleton pattern devre dışı bırakıldı
+  
+  const client = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -85,9 +83,11 @@ export function createClient() {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         flowType: 'pkce', // PKCE flow for better security on mobile
+        // CRITICAL: Storage key değişmesin ki logout sonrası temizlenebilsin
+        storageKey: 'sb-auth-token',
       },
     }
   )
 
-  return browserClient
+  return client
 }

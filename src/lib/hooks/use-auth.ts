@@ -174,29 +174,32 @@ export function useAuth() {
     // 2. Reset Zustand store
     reset()
     
-    // 3. CRITICAL: Clear ALL auth-related storage
+    // 3. CRITICAL: NUCLEAR CLEANUP - Clear EVERYTHING
     if (typeof window !== 'undefined') {
       try {
-        // Clear localStorage
-        localStorage.removeItem('auth-storage')
-        localStorage.removeItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0] + '-auth-token')
+        // Clear ALL localStorage (not just specific keys)
+        const localStorageKeys = Object.keys(localStorage)
+        localStorageKeys.forEach(key => {
+          if (key.includes('sb-') || key.includes('auth') || key.includes('supabase')) {
+            localStorage.removeItem(key)
+          }
+        })
         
-        // Clear sessionStorage
+        // Also clear Zustand store
+        localStorage.removeItem('auth-storage')
+        
+        // Clear ALL sessionStorage
         sessionStorage.clear()
         
-        // FORCE clear ALL Supabase cookies
-        const cookieNames = [
-          'sb-access-token',
-          'sb-refresh-token', 
-          'sb-auth-token',
-          'sb-provider-token',
-          'sb-oauth-state'
-        ]
-        
-        cookieNames.forEach(name => {
-          document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-          document.cookie = `${name}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-          document.cookie = `${name}=; path=/; domain=.${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        // NUCLEAR: Clear ALL cookies (not just Supabase)
+        document.cookie.split(';').forEach(cookie => {
+          const name = cookie.split('=')[0].trim()
+          if (name) {
+            // Delete with all possible path/domain combinations
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+            document.cookie = `${name}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+            document.cookie = `${name}=; path=/; domain=.${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+          }
         })
       } catch (e) {
         console.error('Storage cleanup error:', e)
