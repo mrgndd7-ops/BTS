@@ -322,6 +322,9 @@ export function LiveTrackingMap({
 
       const latestLocations = new Map<string, PersonnelLocation>()
       data.forEach((location: any) => {
+        // Skip if no user_id or no profile data
+        if (!location.user_id || !location.profiles) return
+        
         if (!latestLocations.has(location.user_id)) {
           latestLocations.set(location.user_id, location as PersonnelLocation)
         }
