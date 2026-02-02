@@ -40,9 +40,22 @@ export function useGPSTracking(taskId?: string | null) {
       return
     }
 
+    // GPS Hassasiyet kontrolü: 5-10m altında olmalı
+    if (location.accuracy > 15) {
+      console.warn('📍 GPS Hassasiyet düşük, kaydetme atlanıyor:', location.accuracy)
+      return
+    }
+
     try {
       // Device ID oluştur (user_id bazlı)
       const deviceId = `radar-web-${user.id.slice(0, 8)}`
+      
+      console.log('📍 GPS kaydet:', {
+        task_id: currentTaskIdRef.current,
+        accuracy: location.accuracy,
+        lat: location.latitude,
+        lng: location.longitude
+      })
       
       await supabase
         .from('gps_locations')
@@ -58,8 +71,10 @@ export function useGPSTracking(taskId?: string | null) {
           altitude: location.altitude,
           recorded_at: new Date(location.timestamp).toISOString()
         })
+      
+      console.log('✅ GPS kaydedildi')
     } catch (err) {
-      // Silently fail - GPS tracking shouldn't break app
+      console.error('❌ GPS kaydetme hatası:', err)
     }
   }, [user?.id, supabase])
 
@@ -114,7 +129,7 @@ export function useGPSTracking(taskId?: string | null) {
   }, [saveLocationToDatabase])
 
   /**
-   * Periyodik GPS tracking başlat (her 10 saniyede bir)
+   * Periyodik GPS tracking başlat (her 5 saniyede bir - daha sık güncelleme)
    */
   const startTracking = useCallback(async (): Promise<boolean> => {
     // Radar.io'yu initialize et
@@ -123,6 +138,8 @@ export function useGPSTracking(taskId?: string | null) {
       setError('Radar.io başlatılamadı. Lütfen sayfayı yenileyin.')
       return false
     }
+
+    console.log('🚀 GPS Tracking başlatılıyor...')
 
     // İlk konumu hemen al
     const firstLocation = await trackOnce()
@@ -134,10 +151,13 @@ export function useGPSTracking(taskId?: string | null) {
     setIsTracking(true)
     setError(null)
 
-    // Her 10 saniyede bir konum al
+    console.log('✅ GPS Tracking aktif - Her 5 saniyede güncelleme')
+
+    // Her 5 saniyede bir konum al (daha sık update için)
     trackingIntervalRef.current = setInterval(async () => {
+      console.log('📍 GPS güncelleme zamanı...')
       await trackOnce()
-    }, 10000) // 10 saniye
+    }, 5000) // 5 saniye
 
     return true
   }, [trackOnce])

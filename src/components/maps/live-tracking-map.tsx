@@ -141,7 +141,15 @@ export function LiveTrackingMap({
     if (!map.current) return
 
     // Determine if task is active (in_progress status)
-    const isActiveTask = personnel.task_id && personnel.tasks?.status === 'in_progress'
+    const isActiveTask = !!(personnel.task_id && personnel.tasks?.status === 'in_progress')
+    
+    // DEBUG LOG
+    console.log('📍 Update Marker:', {
+      user: personnel.profiles?.full_name,
+      task_id: personnel.task_id,
+      task_status: personnel.tasks?.status,
+      isActiveTask
+    })
 
     const existingMarker = markers.current.get(personnel.user_id)
     
