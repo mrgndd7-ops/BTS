@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Clock, Play, Square, Loader2 } from 'lucide-react'
 
 interface Task {
   id: string
@@ -19,6 +21,10 @@ export function TaskList() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
+  const [processingTask, setProcessingTask] = useState<string | null>(null)
+  
+  const { isTracking, startTracking, stopTracking } = useGPSTracking(activeTaskId)
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -60,6 +66,85 @@ export function TaskList() {
     loadTasks()
   }, [user])
 
+  const handleStartTask = async (taskId: string) => {
+    setProcessingTask(taskId)
+    try {
+      console.log('🚀 Görev başlatılıyor:', taskId)
+      
+      // 1. GPS tracking başlat
+      setActiveTaskId(taskId)
+      const gpsStarted = await startTracking()
+      
+      if (!gpsStarted) {
+        throw new Error('GPS izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
+      }
+      
+      console.log('✅ GPS başlatıldı')
+      
+      // 2. Task status güncelle
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'in_progress',
+          started_at: new Date().toISOString() 
+        })
+        .eq('id', taskId)
+      
+      if (error) throw error
+      
+      console.log('✅ Task güncellendi')
+      
+      // 3. Local state güncelle
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, status: 'in_progress' } : t
+      ))
+      
+    } catch (err: any) {
+      console.error('❌ Görev başlatma hatası:', err)
+      alert(err.message || 'Görev başlatılamadı')
+      setActiveTaskId(null)
+    } finally {
+      setProcessingTask(null)
+    }
+  }
+
+  const handleStopTask = async (taskId: string) => {
+    setProcessingTask(taskId)
+    try {
+      console.log('🛑 Görev durduruluyor:', taskId)
+      
+      // 1. GPS durdur
+      stopTracking()
+      setActiveTaskId(null)
+      
+      console.log('✅ GPS durduruldu')
+      
+      // 2. Task status güncelle
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString() 
+        })
+        .eq('id', taskId)
+      
+      if (error) throw error
+      
+      console.log('✅ Task tamamlandı')
+      
+      // 3. Task'ı listeden kaldır (completed görünmez)
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      
+    } catch (err: any) {
+      console.error('❌ Görev durdurma hatası:', err)
+      alert(err.message || 'Görev durdurulamadı')
+    } finally {
+      setProcessingTask(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -84,7 +169,7 @@ export function TaskList() {
       {tasks.map((task) => (
         <Card key={task.id} className="bg-slate-800/40 border-slate-700">
           <CardContent className="p-4">
-            <div className="flex items-start justify-between mb-2">
+            <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h3 className="font-semibold text-white">{task.title}</h3>
                 {task.description && (
@@ -95,9 +180,52 @@ export function TaskList() {
                 {task.status === 'in_progress' ? 'Devam Ediyor' : 'Bekliyor'}
               </Badge>
             </div>
-            <p className="text-xs text-slate-500">
-              {new Date(task.created_at).toLocaleString('tr-TR')}
-            </p>
+            
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-500">
+                {new Date(task.created_at).toLocaleString('tr-TR')}
+              </p>
+              
+              {task.status === 'assigned' ? (
+                <Button
+                  size="sm"
+                  onClick={() => handleStartTask(task.id)}
+                  disabled={processingTask === task.id}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {processingTask === task.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Başlatılıyor...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Görevi Başlat
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => handleStopTask(task.id)}
+                  disabled={processingTask === task.id}
+                  variant="destructive"
+                >
+                  {processingTask === task.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Durduruluyor...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="h-4 w-4 mr-2" />
+                      Görevi Bitir
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
