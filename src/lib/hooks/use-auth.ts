@@ -158,7 +158,6 @@ export function useAuth() {
   }
 
   const logout = async () => {
-    console.log('Supabase signOut baslatiliyor...')
     const { error } = await supabase.auth.signOut()
     
     if (error) {
@@ -166,9 +165,17 @@ export function useAuth() {
       throw error
     }
 
-    console.log('Supabase signOut basarili')
+    // Zustand store'u temizle
     reset()
-    // Router push'u sidebar'da yapiyoruz, burada yapmaya gerek yok
+    
+    // localStorage'daki auth-storage'ı da temizle (mobil için kritik)
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('auth-storage')
+      } catch (e) {
+        console.error('localStorage cleanup error:', e)
+      }
+    }
   }
 
   return {
