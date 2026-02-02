@@ -53,31 +53,27 @@ export function Sidebar() {
   const navItems = profile?.role === 'personnel' ? workerNavItems : adminNavItems
 
   const handleLogout = async () => {
+    console.log('🚪 LOGOUT BUTTON CLICKED!')
     try {
       console.log('🚪 Çıkış yapılıyor...')
       
       // 1. Logout (clears storage + cookies)
       await logout()
       
-      console.log('✅ Logout başarılı')
+      console.log('✅ Logout başarılı, yönlendiriliyor...')
       
       // 2. FORCE hard reload to clear ALL memory
       if (typeof window !== 'undefined') {
+        console.log('🔄 Redirecting to /login...')
         window.location.href = '/login'
-        // Force full page reload (not SPA navigation)
-        setTimeout(() => {
-          window.location.reload()
-        }, 100)
       }
     } catch (error) {
       console.error('❌ Logout error:', error)
       
       // Force redirect even on error
       if (typeof window !== 'undefined') {
+        console.log('⚠️ Error but redirecting anyway...')
         window.location.href = '/login'
-        setTimeout(() => {
-          window.location.reload()
-        }, 100)
       }
     }
   }

@@ -2,14 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { Header } from '@/components/dashboard/header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useProfile } from '@/lib/hooks/use-profile'
-import { Users, UserPlus, MapPin, Phone, Mail, Building2 } from 'lucide-react'
-import Link from 'next/link'
+import { Users, MapPin, Phone, Mail } from 'lucide-react'
 
 interface Personnel {
   id: string
@@ -17,123 +14,59 @@ interface Personnel {
   email: string | null
   phone: string | null
   department: string | null
-  unit: string | null
-  employee_id: string | null
   status: string
-  avatar_url: string | null
-  created_at: string
-  latest_location?: {
-    latitude: number
-    longitude: number
-    recorded_at: string
-  } | null
+  city: string | null
+  district: string | null
 }
 
 export default function PersonnelPage() {
   const supabase = createClient()
   const { user } = useAuth()
-  const { profile } = useProfile()
   const [personnel, setPersonnel] = useState<Personnel[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active')
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
-
     const loadPersonnel = async () => {
       try {
-        console.log('👥 Personel listesi yükleniyor...')
-        console.log('🌍 Multi-tenant: DEVREDİŞİ - Tüm Türkiye gösteriliyor')
+        console.log('👥 Personel yükleniyor...')
         
-        // Build query - NO MUNICIPALITY FILTER
-        let query = supabase
+        if (!user) {
+          console.log('❌ User yok')
+          setLoading(false)
+          return
+        }
+
+        // BASİT QUERY - TÜM PERSONELLER
+        const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, full_name, email, phone, department, status, city, district')
           .eq('role', 'personnel')
-        
-        // ⚠️ MULTI-TENANT DEVREDİŞI
-        // Gelecekte aktif etmek için: MULTI_TENANT_BACKUP.md
-        
-        const { data: profilesData, error: personnelError } = await query.order('full_name')
-        
-        if (personnelError) {
-          console.error('❌ Personel yükleme hatası:', personnelError)
-          setLoading(false)
-          return
-        }
-        
-        console.log('📋 Bulunan personel sayısı:', profilesData?.length || 0)
+          .order('full_name')
 
-        if (!profilesData || profilesData.length === 0) {
-          setPersonnel([])
-          setLoading(false)
-          return
+        console.log('📊 Query sonucu:', { count: data?.length, error })
+
+        if (error) {
+          console.error('❌ Query error:', error)
+          throw error
         }
 
-        const filtered = filter === 'all' 
-          ? profilesData 
-          : profilesData.filter(p => p.status === filter)
-
-        // OPTIMIZED: Batch GPS query instead of N+1
-        const personnelIds = filtered.map(p => p.id)
-        
-        if (personnelIds.length > 0) {
-          // Get latest location for each personnel in a single query
-          const { data: allLocations } = await supabase
-            .from('gps_locations')
-            .select('user_id, latitude, longitude, recorded_at')
-            .in('user_id', personnelIds)
-            .order('recorded_at', { ascending: false })
-
-          // Group by user_id and take the latest
-          const latestByUser = new Map<string, any>()
-          allLocations?.forEach(loc => {
-            if (!latestByUser.has(loc.user_id)) {
-              latestByUser.set(loc.user_id, loc)
-            }
-          })
-
-          // Merge locations with personnel data
-          const personnelWithLocations = filtered.map(person => ({
-            ...person,
-            latest_location: latestByUser.get(person.id) || null
-          }))
-
-          setPersonnel(personnelWithLocations)
-        } else {
-          setPersonnel([])
-        }
+        setPersonnel(data || [])
       } catch (err) {
-        console.error('❌ Personel yükleme genel hatası:', err)
+        console.error('❌ Load error:', err)
         setPersonnel([])
       } finally {
+        console.log('✅ Loading complete')
         setLoading(false)
       }
     }
 
     loadPersonnel()
-  }, [user, filter]) // FIXED: Removed supabase from dependencies (mobile crash fix)
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="success">Aktif</Badge>
-      case 'inactive':
-        return <Badge variant="error">Pasif</Badge>
-      case 'on_leave':
-        return <Badge variant="warning">Izinli</Badge>
-      default:
-        return <Badge variant="default">{status}</Badge>
-    }
-  }
+  }, [user])
 
   if (loading) {
     return (
       <div className="space-y-6 p-6">
-        <Header title="Personel" description="Personel yonetimi" />
+        <Header title="Personel" description="Personel yönetimi" />
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
         </div>
@@ -143,136 +76,59 @@ export default function PersonnelPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <Header title="Personel" description="Personel yonetimi ve bilgileri" />
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Yeni Personel
-        </Button>
-      </div>
-
-      <div className="flex gap-2 border-b border-slate-800">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            filter === 'all'
-              ? 'text-blue-500 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Tumu ({personnel.length})
-        </button>
-        <button
-          onClick={() => setFilter('active')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            filter === 'active'
-              ? 'text-blue-500 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Aktif
-        </button>
-        <button
-          onClick={() => setFilter('inactive')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            filter === 'inactive'
-              ? 'text-blue-500 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Pasif
-        </button>
-      </div>
+      <Header 
+        title="Personel" 
+        description={`${personnel.length} personel kayıtlı`} 
+      />
 
       {personnel.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-            <p className="text-slate-400">Personel bulunamadi</p>
+        <Card className="bg-slate-800/40">
+          <CardContent className="p-12 text-center">
+            <Users className="h-12 w-12 mx-auto text-slate-500 mb-4" />
+            <p className="text-slate-400">Henüz personel kaydı yok</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {personnel.map((person) => (
-            <Card key={person.id} className="hover:border-blue-500/50 transition-colors">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
-                      {person.full_name?.charAt(0) || 'P'}
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">
-                        {person.full_name || 'Isimsiz'}
-                      </CardTitle>
-                      {person.employee_id && (
-                        <p className="text-xs text-slate-400">#{person.employee_id}</p>
-                      )}
-                    </div>
-                  </div>
-                  {getStatusBadge(person.status)}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {person.email && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Mail className="h-4 w-4" />
-                    <span className="truncate">{person.email}</span>
-                  </div>
-                )}
-                {person.phone && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Phone className="h-4 w-4" />
-                    <span>{person.phone}</span>
-                  </div>
-                )}
-                {person.department && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Building2 className="h-4 w-4" />
-                    <span>{person.department}</span>
-                  </div>
-                )}
-                {person.unit && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <MapPin className="h-4 w-4" />
-                    <span>{person.unit}</span>
-                  </div>
-                )}
-
-                <div className="pt-3 border-t border-slate-700">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-slate-400">GPS Konumu</span>
-                    {person.latest_location ? (
-                      <Badge className="bg-green-500/10 text-green-400 border-green-500/30 text-xs">
-                        Aktif
-                      </Badge>
-                    ) : (
-                      <Badge variant="warning" className="text-xs">Veri Yok</Badge>
+            <Card key={person.id} className="bg-slate-800/40 border-slate-700">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-white">{person.full_name}</h3>
+                    {person.department && (
+                      <p className="text-sm text-slate-400">{person.department}</p>
                     )}
                   </div>
-                  
-                  {person.latest_location ? (
-                    <div className="space-y-2">
-                      <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                        <div className="flex items-center justify-between">
-                          <code className="text-xs text-blue-400">
-                            {person.latest_location.latitude.toFixed(6)}, {person.latest_location.longitude.toFixed(6)}
-                          </code>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Son guncelleme: {new Date(person.latest_location.recorded_at).toLocaleString('tr-TR')}
-                        </p>
-                      </div>
-                    </div>
-                  ) : null}
+                  <Badge 
+                    variant={person.status === 'active' ? 'success' : 'default'}
+                    className="text-xs"
+                  >
+                    {person.status === 'active' ? 'Aktif' : 'Pasif'}
+                  </Badge>
                 </div>
 
-                <div className="pt-2 flex gap-2">
-                  <Link href={`/admin/personnel/${person.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Detay
-                    </Button>
-                  </Link>
+                <div className="space-y-2 text-sm">
+                  {person.email && (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Mail className="h-4 w-4" />
+                      <span className="truncate">{person.email}</span>
+                    </div>
+                  )}
+                  
+                  {person.phone && (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Phone className="h-4 w-4" />
+                      <span>{person.phone}</span>
+                    </div>
+                  )}
+                  
+                  {person.city && (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <MapPin className="h-4 w-4" />
+                      <span>{person.city} / {person.district}</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

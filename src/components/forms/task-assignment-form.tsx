@@ -56,49 +56,39 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
   // Personel listesini yükle
   useEffect(() => {
     const loadPersonnel = async () => {
+      console.log('🔍 Task form - Loading personnel...')
+      
       if (!user) {
+        console.log('❌ No user')
         return
       }
 
       try {
-        // Build query with municipality filter if available
-        let query = supabase
+        // BASİT QUERY - TÜM AKTİF PERSONELLER
+        const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, department, city, municipality_id')
+          .select('id, full_name, department, city')
           .eq('role', 'personnel')
           .eq('status', 'active')
-        
-        // Multi-tenant isolation: Only show personnel from same municipality
-        // UNLESS user is super_admin (can see ALL personnel)
-        if (profile?.municipality_id && profile?.role !== 'super_admin') {
-          query = query.eq('municipality_id', profile.municipality_id)
-        }
-        
-        console.log('🔍 Loading personnel for task assignment:', {
-          isSuperAdmin: profile?.role === 'super_admin',
-          municipalityId: profile?.municipality_id
-        })
-        
-        const { data, error } = await query.order('full_name')
+          .order('full_name')
+
+        console.log('📊 Personnel loaded:', { count: data?.length, error })
 
         if (error) {
+          console.error('❌ Error:', error)
           setError('Personel listesi yüklenemedi: ' + error.message)
           return
         }
 
-        if (!data || data.length === 0) {
-          setPersonnel([])
-          return
-        }
-
-        setPersonnel(data)
+        setPersonnel(data || [])
       } catch (err) {
+        console.error('❌ Load error:', err)
         setError('Personel listesi yüklenirken bir hata oluştu')
       }
     }
 
     loadPersonnel()
-  }, [supabase, user, profile?.municipality_id])
+  }, [user]) // BASİT DEPENDENCY
 
   const onSubmit = async (data: TaskFormData) => {
     if (!user) return
@@ -108,31 +98,16 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
     setSuccess(false)
 
     try {
-      // 1. Kullanıcının belediye ID'sini al
-      const { data: userProfile, error: profileError } = await supabase
+      // 1. Atanan personelin belediye ID'sini al
+      const { data: assignedPersonnel } = await supabase
         .from('profiles')
-        .select('municipality_id, role')
-        .eq('id', user.id)
+        .select('municipality_id')
+        .eq('id', data.assigned_to)
         .single()
 
-      // Super admin için municipality_id kontrolü bypass
-      if (!userProfile?.municipality_id && userProfile?.role !== 'super_admin') {
-        throw new Error('Belediye bilgisi bulunamadı. Lütfen profil bilgilerinizi tamamlayın.')
-      }
-
-      // Super admin için: Atanan personelin belediyesini kullan
-      let taskMunicipalityId = userProfile?.municipality_id
+      const taskMunicipalityId = assignedPersonnel?.municipality_id || null
       
-      if (userProfile?.role === 'super_admin' && !taskMunicipalityId) {
-        // Super admin görev oluştururken, atanan personelin belediyesini al
-        const { data: assignedPersonnel } = await supabase
-          .from('profiles')
-          .select('municipality_id')
-          .eq('id', data.assigned_to)
-          .single()
-        
-        taskMunicipalityId = assignedPersonnel?.municipality_id || null
-      }
+      console.log('📍 Task municipality:', taskMunicipalityId)
 
       // 2. Görev oluştur
       const taskData = {
