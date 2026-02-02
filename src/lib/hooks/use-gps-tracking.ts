@@ -132,8 +132,8 @@ export function useGPSTracking(taskId?: string | null) {
    * Periyodik GPS tracking başlat (her 5 saniyede bir - daha sık güncelleme)
    */
   const startTracking = useCallback(async (): Promise<boolean> => {
-    // Radar.io'yu initialize et
-    const initialized = initializeRadar()
+    // 🔥 Radar.io'yu dynamic import ile initialize et
+    const initialized = await initializeRadar()
     if (!initialized) {
       setError('Radar.io başlatılamadı. Lütfen sayfayı yenileyin.')
       return false

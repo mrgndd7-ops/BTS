@@ -1,24 +1,24 @@
 /**
  * Radar.io Client SDK
  * GPS tracking için Radar.io SDK initialization
+ * 🔥 CRITICAL: Dynamic import to prevent SSR errors
  */
 
-import Radar from 'radar-sdk-js'
-
+let Radar: any = null
 let isInitialized = false
 
 /**
- * Radar SDK'yı başlat
+ * Radar SDK'yı dynamic import ile yükle
  * Sadece browser'da çalışır (SSR safe)
  */
-export function initializeRadar(): boolean {
+export async function initializeRadar(): Promise<boolean> {
   // Server-side rendering check
   if (typeof window === 'undefined') {
     return false
   }
 
   // Zaten initialize edilmişse tekrar yapma
-  if (isInitialized) {
+  if (isInitialized && Radar) {
     return true
   }
 
@@ -26,15 +26,25 @@ export function initializeRadar(): boolean {
   const publishableKey = process.env.NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY
 
   if (!publishableKey) {
+    console.error('❌ NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY bulunamadı')
     return false
   }
 
   try {
-    // Radar.io SDK'yi baslat
+    // 🔥 Dynamic import - SSR'da yüklenmez
+    if (!Radar) {
+      const radarModule = await import('radar-sdk-js')
+      Radar = radarModule.default
+      console.log('✅ Radar SDK dinamik olarak yüklendi')
+    }
+
+    // Radar.io SDK'yi başlat
     Radar.initialize(publishableKey)
     isInitialized = true
+    console.log('✅ Radar SDK initialize edildi')
     return true
   } catch (error) {
+    console.error('❌ Radar SDK yüklenemedi:', error)
     return false
   }
 }
@@ -43,26 +53,17 @@ export function initializeRadar(): boolean {
  * Radar SDK'nın initialize durumunu kontrol et
  */
 export function isRadarInitialized(): boolean {
-  return isInitialized
+  return isInitialized && Radar !== null
 }
 
 /**
  * Radar SDK instance'ını döndür
- * Otomatik initialize eder
+ * NOT: initializeRadar()'ı await ile çağırın
  */
-export function getRadar(): typeof Radar | null {
+export function getRadar(): any | null {
   if (typeof window === 'undefined') {
     return null
   }
 
-  if (!isInitialized) {
-    const success = initializeRadar()
-    if (!success) {
-      return null
-    }
-  }
-
   return Radar
 }
-
-export default Radar

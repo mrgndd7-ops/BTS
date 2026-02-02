@@ -1,18 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Clock, Play, Square, Loader2 } from 'lucide-react'
-
-// Dynamic import for GPS tracking (only in browser)
-let useGPSTracking: any = null
-if (typeof window !== 'undefined') {
-  useGPSTracking = require('@/lib/hooks/use-gps-tracking').useGPSTracking
-}
 
 interface Task {
   id: string
@@ -28,14 +22,118 @@ export function TaskList() {
   const [loading, setLoading] = useState(true)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
+  const [isTracking, setIsTracking] = useState(false)
   
-  // Only call hook in browser
-  const gpsTracking = useGPSTracking ? useGPSTracking(activeTaskId) : {
-    isTracking: false,
-    startTracking: async () => false,
-    stopTracking: () => {}
+  // GPS tracking methods (will be initialized on client side)
+  const gpsMethodsRef = useRef<{
+    startTracking: () => Promise<boolean>
+    stopTracking: () => void
+  } | null>(null)
+  
+  // Initialize GPS tracking on client side only
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !gpsMethodsRef.current) {
+      import('@/lib/hooks/use-gps-tracking').then(module => {
+        // We'll use Radar directly instead of the hook to avoid hook ordering issues
+        import('@/lib/radar/client').then(radarModule => {
+          const { initializeRadar, getRadar } = radarModule
+          
+          gpsMethodsRef.current = {
+            startTracking: async () => {
+              try {
+                console.log('🚀 GPS başlatılıyor...')
+                
+                const initialized = initializeRadar()
+                if (!initialized) {
+                  console.error('❌ Radar başlatılamadı')
+                  return false
+                }
+                
+                const Radar = getRadar()
+                if (!Radar) {
+                  console.error('❌ Radar SDK yok')
+                  return false
+                }
+                
+                // İlk konumu al
+                const result = await Radar.trackOnce()
+                if (!result.location) {
+                  console.error('❌ Konum alınamadı')
+                  return false
+                }
+                
+                console.log('✅ GPS başlatıldı:', result.location)
+                
+                // Supabase'e kaydet
+                if (user?.id && activeTaskId) {
+                  const supabase = createClient()
+                  const deviceId = `radar-web-${user.id.slice(0, 8)}`
+                  
+                  await supabase.from('gps_locations').insert({
+                    device_id: deviceId,
+                    user_id: user.id,
+                    task_id: activeTaskId,
+                    latitude: result.location.latitude,
+                    longitude: result.location.longitude,
+                    accuracy: result.location.accuracy || 0,
+                    recorded_at: new Date().toISOString()
+                  })
+                  
+                  console.log('✅ İlk konum kaydedildi')
+                  
+                  // Her 5 saniyede tracking
+                  const interval = setInterval(async () => {
+                    try {
+                      const trackResult = await Radar.trackOnce()
+                      if (trackResult.location && user?.id) {
+                        await supabase.from('gps_locations').insert({
+                          device_id: deviceId,
+                          user_id: user.id,
+                          task_id: activeTaskId,
+                          latitude: trackResult.location.latitude,
+                          longitude: trackResult.location.longitude,
+                          accuracy: trackResult.location.accuracy || 0,
+                          recorded_at: new Date().toISOString()
+                        })
+                        console.log('📍 GPS güncellendi')
+                      }
+                    } catch (err) {
+                      console.error('❌ GPS tracking error:', err)
+                    }
+                  }, 5000)
+                  
+                  // Store interval ID for cleanup
+                  ;(gpsMethodsRef.current as any).intervalId = interval
+                }
+                
+                setIsTracking(true)
+                return true
+              } catch (err) {
+                console.error('❌ GPS start error:', err)
+                return false
+              }
+            },
+            stopTracking: () => {
+              console.log('🛑 GPS durduruluyor...')
+              if ((gpsMethodsRef.current as any)?.intervalId) {
+                clearInterval((gpsMethodsRef.current as any).intervalId)
+              }
+              setIsTracking(false)
+              console.log('✅ GPS durduruldu')
+            }
+          }
+        })
+      })
+    }
+  }, [user?.id, activeTaskId])
+  
+  const startTracking = async () => {
+    return gpsMethodsRef.current?.startTracking() || false
   }
-  const { isTracking, startTracking, stopTracking } = gpsTracking
+  
+  const stopTracking = () => {
+    gpsMethodsRef.current?.stopTracking()
+  }
 
   useEffect(() => {
     const loadTasks = async () => {
