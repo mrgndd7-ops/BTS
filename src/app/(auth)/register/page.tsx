@@ -60,6 +60,8 @@ export default function RegisterPage() {
 
       setLoadingMunicipalities(true)
       try {
+        console.log('🏢 Belediye aranıyor, il:', selectedCity)
+        
         const { data, error } = await supabase
           .from('municipalities')
           .select('id, name, city, district')
@@ -67,14 +69,21 @@ export default function RegisterPage() {
           .eq('city', selectedCity)
           .order('name', { ascending: true })
         
+        console.log('📊 Bulunan belediye sayısı:', data?.length || 0)
+        console.log('📋 Belediyeler:', data)
+        
         if (error) {
+          console.error('❌ Belediye yükleme hatası:', error)
           setFilteredMunicipalities([])
-        } else if (data) {
+        } else if (data && data.length > 0) {
+          console.log('✅ Belediyeler yüklendi')
           setFilteredMunicipalities(data)
         } else {
+          console.warn('⚠️ Bu ilde belediye bulunamadı:', selectedCity)
           setFilteredMunicipalities([])
         }
       } catch (err) {
+        console.error('❌ Belediye fetch error:', err)
         setFilteredMunicipalities([])
       } finally {
         setLoadingMunicipalities(false)
