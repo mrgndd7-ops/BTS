@@ -86,12 +86,16 @@ export function TaskList() {
     setStartingTask(taskId)
 
     try {
+      console.log('🚀 Görev başlatılıyor:', taskId)
+      
       // 1. GPS Tracking'i başlat
       const trackingStarted = await startTracking()
       
       if (!trackingStarted) {
         throw new Error('GPS tracking baslatılamadi. Lutfen konum iznini kontrol edin.')
       }
+      
+      console.log('✅ GPS tracking başlatıldı')
       
       // 2. Görev durumunu güncelle
       const { data, error } = await supabase
@@ -106,9 +110,21 @@ export function TaskList() {
       
       if (error) throw error
 
+      console.log('✅ Görev durumu güncellendi:', data)
+
       // 3. Aktif görev olarak kaydet
       setActiveTaskId(taskId)
+      
+      // 4. CRITICAL: Manually update local state to trigger re-render
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, status: 'in_progress', started_at: new Date().toISOString() } : task
+        )
+      )
+      
+      console.log('✅ Görev başlatıldı, buton "Tamamla" olarak değişmeli')
     } catch (err: any) {
+      console.error('❌ Görev başlatma hatası:', err)
       alert(err.message || 'Gorev baslatilamadi. Lutfen tekrar deneyin.')
       
       // Hata durumunda GPS tracking'i durdur
@@ -302,12 +318,18 @@ export function TaskList() {
                 <Button
                   onClick={() => handleCompleteTask(task.id)}
                   className="flex-1"
+                  variant="default"
                 >
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Tamamla
+                  Görevi Bitir
                 </Button>
               )}
             </div>
+            
+            {/* DEBUG: Show task status */}
+            <p className="text-xs text-slate-500">
+              Status: {task.status} | ID: {task.id.slice(0, 8)}
+            </p>
 
             {task.status === 'assigned' && (
               <p className="text-xs text-slate-400 flex items-center gap-1">
