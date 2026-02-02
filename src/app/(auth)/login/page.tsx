@@ -47,11 +47,15 @@ function LoginForm() {
       // Redirect based on role
       const redirect = searchParams.get('redirect')
       
+      console.log('🔐 Login başarılı, role:', profileData?.role)
+      
       // Eger redirect '/' veya bossa, role'e gore yonlendir
       if (redirect && redirect !== '/') {
         router.push(redirect)
       } else {
+        // super_admin ve admin aynı panele gider
         const targetUrl = profileData?.role === 'personnel' ? '/worker' : '/admin'
+        console.log('🎯 Yönlendirme:', targetUrl)
         router.push(targetUrl)
       }
       
