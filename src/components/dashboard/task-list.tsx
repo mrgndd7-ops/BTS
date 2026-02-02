@@ -91,7 +91,7 @@ export function TaskList() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, supabase])
+  }, [user]) // FIXED: Removed supabase from dependencies (mobile crash fix)
 
   // Görevi başlat ve GPS tracking'i otomatik başlat
   const handleStartTask = async (taskId: string) => {
