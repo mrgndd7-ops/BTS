@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'BTS - Belediye Temizlik Sistemi',
-  description: 'Belediye temizlik operasyonlarını dijitalleştiren akıllı platform',
+  description: 'Belediye temizlik operasyonlarini dijitallestiren akilli platform',
   manifest: '/manifest.json',
   themeColor: '#3b82f6',
   appleWebApp: {

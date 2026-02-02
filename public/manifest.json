@@ -1,7 +1,7 @@
 {
   "name": "BTS - Belediye Temizlik Sistemi",
   "short_name": "BTS",
-  "description": "Belediye temizlik operasyonlarını dijital olarak yönetin",
+  "description": "Belediye temizlik operasyonlarini dijital olarak yonetin",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
