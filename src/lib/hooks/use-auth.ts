@@ -17,19 +17,11 @@ export function useAuth() {
 
   useEffect(() => {
     let isMounted = true
-    console.log('🚀 [use-auth] useEffect MOUNTED')
     
     // Initial session check
     const checkSession = async () => {
-      console.log('🔄 [use-auth] checkSession CALLED')
-      
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        console.log('📡 [use-auth] session fetched:', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          isMounted
-        })
         
         if (isMounted && session?.user) {
           setUser(session.user)
@@ -41,12 +33,7 @@ export function useAuth() {
             .eq('id', session.user.id)
             .single()
           
-          console.log('👤 [use-auth] profile fetched:', {
-            hasProfile: !!profileData,
-            isMounted
-          })
-          
-          if (isMounted) {
+          if (isMounted && profileData) {
             setProfile(profileData)
           }
         }
@@ -57,7 +44,6 @@ export function useAuth() {
       } finally {
         if (isMounted) {
           setIsLoading(false)
-          console.log('✅ [use-auth] isLoading set to FALSE')
         }
       }
     }
@@ -67,17 +53,21 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔔 [use-auth] onAuthStateChange TRIGGERED:', {
-          event,
-          hasSession: !!session,
-          isMounted
-        })
-        
         if (!isMounted) return
         
         if (session?.user) {
           setUser(session.user)
-          // Profile login sayfasında alınıyor, burada tekrar almaya gerek yok
+          
+          // Profile'ı da güncelle
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+          
+          if (profileData && isMounted) {
+            setProfile(profileData)
+          }
         } else {
           reset()
         }
@@ -86,32 +76,24 @@ export function useAuth() {
     )
 
     return () => {
-      console.log('🧹 [use-auth] CLEANUP')
       isMounted = false
       subscription.unsubscribe()
     }
   }, [supabase, setUser, setProfile, setIsLoading, reset])
 
   const login = async ({ email, password }: LoginInput) => {
-    console.log('🔐 [use-auth] login() STARTED')
-    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      console.log('🔐 [use-auth] login() RESPONSE:', { hasData: !!data, hasError: !!error })
-
       if (error) {
-        console.error('🔐 [use-auth] login() ERROR:', error)
         throw error
       }
 
-      console.log('🔐 [use-auth] login() SUCCESS')
       return data
     } catch (err) {
-      console.error('🔐 [use-auth] login() CATCH:', err)
       throw err
     }
   }

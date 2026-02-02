@@ -46,6 +46,7 @@ export function LiveTrackingMap({
   const map = useRef<maplibregl.Map | null>(null)
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map())
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
   const [personnelLocations, setPersonnelLocations] = useState<Map<string, PersonnelLocation>>(new Map())
   const supabase = createClient()
 
@@ -272,6 +273,8 @@ export function LiveTrackingMap({
 
     map.current.on('load', () => {
       setIsLoaded(true)
+      // Harita tamamen yüklendiğinde initializing'i kapat
+      setTimeout(() => setIsInitializing(false), 500)
     })
 
     // Cleanup
@@ -393,11 +396,13 @@ export function LiveTrackingMap({
   return (
     <div className={cn('relative', className)}>
       <div ref={mapContainer} className="w-full h-full rounded-lg" />
-      {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 rounded-lg">
+      
+      {/* Loading Overlay - daha smooth */}
+      {isInitializing && (
+        <div className="absolute inset-0 z-10 bg-slate-900/95 backdrop-blur-sm rounded-lg flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">Harita yükleniyor...</p>
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-white text-sm font-medium">Harita yükleniyor...</p>
           </div>
         </div>
       )}

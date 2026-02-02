@@ -207,3 +207,11 @@
 {"location":"login/page.tsx:45","message":"AFTER login() call","data":{"hasUser":true,"userId":"4994cfc4-7e9e-4743-bee9-aaba425f43f4"},"timestamp":1769990108818,"sessionId":"debug-session","hypothesisId":"B"}
 {"location":"login/page.tsx:91","message":"AFTER router.push, BEFORE refresh","data":{},"timestamp":1769990109253,"sessionId":"debug-session","hypothesisId":"D"}
 {"location":"login/page.tsx:98","message":"onSubmit COMPLETED","data":{},"timestamp":1769990109253,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"login/page.tsx:52","message":"BEFORE profile fetch","data":{"userId":"4994cfc4-7e9e-4743-bee9-aaba425f43f4"},"timestamp":1769990969789,"sessionId":"debug-session","hypothesisId":"C"}
+{"location":"login/page.tsx:30","message":"onSubmit STARTED","data":{"email":"mr.gndd7@gmail.com"},"timestamp":1769990969098,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"login/page.tsx:38","message":"BEFORE login() call","data":{},"timestamp":1769990969099,"sessionId":"debug-session","hypothesisId":"B"}
+{"location":"login/page.tsx:63","message":"AFTER profile fetch","data":{"hasProfile":true,"role":"admin","hasError":false},"timestamp":1769990970485,"sessionId":"debug-session","hypothesisId":"C"}
+{"location":"login/page.tsx:75","message":"BEFORE redirect","data":{"redirect":null,"role":"admin"},"timestamp":1769990970485,"sessionId":"debug-session","hypothesisId":"D"}
+{"location":"login/page.tsx:45","message":"AFTER login() call","data":{"hasUser":true,"userId":"4994cfc4-7e9e-4743-bee9-aaba425f43f4"},"timestamp":1769990969788,"sessionId":"debug-session","hypothesisId":"B"}
+{"location":"login/page.tsx:91","message":"AFTER router.push, BEFORE refresh","data":{},"timestamp":1769990970485,"sessionId":"debug-session","hypothesisId":"D"}
+{"location":"login/page.tsx:98","message":"onSubmit COMPLETED","data":{},"timestamp":1769990970486,"sessionId":"debug-session","hypothesisId":"A"}
