@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils/cn'
 interface PersonnelLocation {
   id: string
   user_id: string
+  task_id: string | null
   latitude: number
   longitude: number
   accuracy: number
@@ -22,6 +23,11 @@ interface PersonnelLocation {
     role: string
     avatar_url?: string
   }
+  tasks?: {
+    id: string
+    status: string
+    title: string
+  } | null
 }
 
 interface LiveTrackingMapProps {
@@ -49,24 +55,38 @@ export function LiveTrackingMap({
   const [personnelLocations, setPersonnelLocations] = useState<Map<string, PersonnelLocation>>(new Map())
   const supabase = createClient()
 
-  // Create custom marker element
-  const createMarkerElement = useCallback((personnel: PersonnelLocation) => {
+  // Create custom marker element with active task indication
+  const createMarkerElement = useCallback((personnel: PersonnelLocation, isActiveTask: boolean = false) => {
     const el = document.createElement('div')
     el.className = 'personnel-marker'
     
-    const isMoving = personnel.speed && personnel.speed > 0.5 // > 0.5 m/s
-    const batteryLow = personnel.battery_level && personnel.battery_level < 20
+    // Active task = Blue pulsing animation (görev aktif)
+    // Inactive = Gray static (görev tamamlanmış/konum paylaşımı bitti)
     
     el.innerHTML = `
       <div class="relative cursor-pointer">
-        ${isMoving ? '<div class="absolute -inset-1 bg-blue-500 rounded-full animate-ping opacity-75"></div>' : ''}
-        <div class="relative w-12 h-12 ${isMoving ? 'bg-blue-600' : 'bg-slate-600'} rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+        ${isActiveTask ? `
+          <!-- Outer pulse ring -->
+          <div class="absolute -inset-3 bg-blue-400 rounded-full animate-ping opacity-40"></div>
+          <!-- Middle pulse ring -->
+          <div class="absolute -inset-2 bg-blue-500 rounded-full animate-pulse opacity-60"></div>
+        ` : ''}
+        <!-- Main marker -->
+        <div class="relative w-14 h-14 ${isActiveTask ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-slate-600 to-slate-700'} rounded-full border-4 border-white shadow-2xl flex items-center justify-center transition-all duration-300">
           ${personnel.profiles.avatar_url 
             ? `<img src="${personnel.profiles.avatar_url}" alt="${personnel.profiles.full_name}" class="w-full h-full rounded-full object-cover" />`
-            : `<span class="text-white text-sm font-bold">${personnel.profiles.full_name.charAt(0)}</span>`
+            : `<span class="text-white text-base font-bold">${personnel.profiles.full_name.charAt(0)}</span>`
           }
         </div>
-        ${batteryLow ? '<div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white"></div>' : ''}
+        ${isActiveTask ? `
+          <!-- Active indicator badge -->
+          <div class="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white animate-pulse">
+            <div class="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-75"></div>
+          </div>
+        ` : `
+          <!-- Inactive indicator -->
+          <div class="absolute -top-1 -right-1 w-5 h-5 bg-slate-400 rounded-full border-2 border-white"></div>
+        `}
       </div>
     `
     
@@ -120,6 +140,9 @@ export function LiveTrackingMap({
   const updatePersonnelMarker = useCallback((personnel: PersonnelLocation) => {
     if (!map.current) return
 
+    // Determine if task is active (in_progress status)
+    const isActiveTask = personnel.task_id && personnel.tasks?.status === 'in_progress'
+
     const existingMarker = markers.current.get(personnel.user_id)
     
     if (existingMarker) {
@@ -132,12 +155,12 @@ export function LiveTrackingMap({
         popup.setHTML(createPopupContent(personnel))
       }
       
-      // Update marker element
-      const el = createMarkerElement(personnel)
+      // Update marker element with active status
+      const el = createMarkerElement(personnel, isActiveTask)
       existingMarker.setElement(el)
     } else {
       // Create new marker
-      const el = createMarkerElement(personnel)
+      const el = createMarkerElement(personnel, isActiveTask)
       const popup = new maplibregl.Popup({ 
         offset: 25,
         closeButton: true,
@@ -302,6 +325,7 @@ export function LiveTrackingMap({
         .select(`
           id,
           user_id,
+          task_id,
           latitude,
           longitude,
           accuracy,
@@ -314,6 +338,11 @@ export function LiveTrackingMap({
             full_name,
             role,
             avatar_url
+          ),
+          tasks:task_id (
+            id,
+            status,
+            title
           )
         `)
         .order('recorded_at', { ascending: false })
@@ -377,7 +406,7 @@ export function LiveTrackingMap({
             return
           }
 
-          // Fetch profile data
+          // Fetch profile and task data
           const { data: profile } = await supabase
             .from('profiles')
             .select('id, full_name, role, avatar_url')
@@ -388,9 +417,21 @@ export function LiveTrackingMap({
             return
           }
 
+          // Fetch task data if task_id exists
+          let taskData = null
+          if (newLocation.task_id) {
+            const { data: task } = await supabase
+              .from('tasks')
+              .select('id, status, title')
+              .eq('id', newLocation.task_id)
+              .single()
+            taskData = task
+          }
+
           const personnelLocation: PersonnelLocation = {
             ...newLocation,
-            profiles: profile
+            profiles: profile,
+            tasks: taskData
           }
 
           // Update state
