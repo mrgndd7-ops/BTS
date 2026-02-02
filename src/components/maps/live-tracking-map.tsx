@@ -163,9 +163,25 @@ export function LiveTrackingMap({
         popup.setHTML(createPopupContent(personnel))
       }
       
-      // Update marker element with active status
+      // CRITICAL FIX: MapLibre doesn't have setElement()
+      // We need to remove old marker and create new one to update visual state
+      existingMarker.remove()
+      markers.current.delete(personnel.user_id)
+      
+      // Create new marker with updated state (fall through to else block logic)
       const el = createMarkerElement(personnel, isActiveTask)
-      existingMarker.setElement(el)
+      const newPopup = new maplibregl.Popup({ 
+        offset: 25,
+        closeButton: true,
+        closeOnClick: false
+      }).setHTML(createPopupContent(personnel))
+      
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([personnel.longitude, personnel.latitude])
+        .setPopup(newPopup)
+        .addTo(map.current)
+      
+      markers.current.set(personnel.user_id, marker)
     } else {
       // Create new marker
       const el = createMarkerElement(personnel, isActiveTask)
@@ -216,30 +232,41 @@ export function LiveTrackingMap({
     }
 
     // Check if map is loaded and ready
-    if (!map.current.loaded()) return
+    if (!map.current.loaded()) {
+      console.warn('🗺️ Map not loaded yet, skipping trail update')
+      return
+    }
 
-    if (map.current.getSource(sourceId)) {
-      // Update existing source
-      const source = map.current.getSource(sourceId) as maplibregl.GeoJSONSource
-      source.setData(geojsonData)
-    } else {
-      // Add new source and layer
-      map.current.addSource(sourceId, {
-        type: 'geojson',
-        data: geojsonData
-      })
+    // CRITICAL FIX: Safely check if source exists
+    try {
+      const existingSource = map.current.getSource(sourceId)
+      if (existingSource) {
+        // Update existing source
+        const source = existingSource as maplibregl.GeoJSONSource
+        source.setData(geojsonData)
+        console.log('✅ Trail updated:', userId)
+      } else {
+        // Add new source and layer
+        map.current.addSource(sourceId, {
+          type: 'geojson',
+          data: geojsonData
+        })
 
-      map.current.addLayer({
-        id: layerId,
-        type: 'line',
-        source: sourceId,
-        paint: {
-          'line-color': '#3b82f6',
-          'line-width': 3,
-          'line-opacity': 0.6,
-          'line-dasharray': [2, 2]
-        }
-      })
+        map.current.addLayer({
+          id: layerId,
+          type: 'line',
+          source: sourceId,
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 3,
+            'line-opacity': 0.6,
+            'line-dasharray': [2, 2]
+          }
+        })
+        console.log('✅ Trail created:', userId)
+      }
+    } catch (error) {
+      console.error('❌ Trail update error:', error)
     }
   }, [supabase, showTrails])
 
