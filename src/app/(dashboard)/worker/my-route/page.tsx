@@ -7,9 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
-import { MapPin, Navigation, Clock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { MapPin, Clock, Info } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 
 interface Task {
@@ -26,7 +24,6 @@ interface Task {
 export default function MyRoutePage() {
   const supabase = createClient()
   const { user } = useAuth()
-  const { isTracking, startTracking, stopTracking, currentLocation } = useGPSTracking()
   const [tasks, setTasks] = useState<Task[]>([])
   const [map, setMap] = useState<maplibregl.Map | null>(null)
 
@@ -99,56 +96,24 @@ export default function MyRoutePage() {
         console.error('Rota çizim hatası:', error)
       }
     })
-
-    // Kendi konumunu marker olarak ekle
-    if (currentLocation) {
-      const el = document.createElement('div')
-      el.innerHTML = `
-        <div class="w-12 h-12 bg-blue-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center animate-pulse">
-          <div class="w-3 h-3 bg-white rounded-full"></div>
-        </div>
-      `
-
-      new maplibregl.Marker({ element: el })
-        .setLngLat([currentLocation.longitude, currentLocation.latitude])
-        .addTo(map)
-
-      // Kendi konumuna zoom
-      map.flyTo({
-        center: [currentLocation.longitude, currentLocation.latitude],
-        zoom: 14,
-        duration: 1000
-      })
-    }
-  }, [map, tasks, currentLocation])
+  }, [map, tasks])
 
   return (
     <div className="flex flex-col h-full">
       <div className="p-6 border-b border-slate-800 space-y-4">
         <Header title="Rotam" description="Bugünkü rota ve konum bilgileriniz" />
         
-        {/* GPS Status Card */}
-        <Card>
+        {/* Traccar Info Card */}
+        <Card className="border-blue-500/20 bg-blue-500/5">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isTracking ? 'bg-green-500/10' : 'bg-slate-800'}`}>
-                  <Navigation className={`h-5 w-5 ${isTracking ? 'text-green-500' : 'text-slate-400'}`} />
-                </div>
-                <div>
-                  <p className="font-medium text-white">GPS Takip</p>
-                  <p className="text-sm text-slate-400">
-                    {isTracking ? 'Konum paylaşılıyor' : 'Konum paylaşılmıyor'}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <Info className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="text-sm text-blue-400 font-medium">GPS Takibi Traccar Client ile yapılmaktadır</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Ana Sayfa'daki talimatları takip ederek Traccar Client'ı kurun ve başlatın
+                </p>
               </div>
-              <Button
-                size="sm"
-                variant={isTracking ? 'outline' : 'primary'}
-                onClick={isTracking ? stopTracking : startTracking}
-              >
-                {isTracking ? 'Durdur' : 'Başlat'}
-              </Button>
             </div>
           </CardContent>
         </Card>
