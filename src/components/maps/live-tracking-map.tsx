@@ -357,6 +357,12 @@ export function LiveTrackingMap({
         async (payload) => {
           const newLocation = payload.new as any
 
+          // Eğer user_id yoksa (device mapping yok), skip et
+          if (!newLocation.user_id) {
+            console.log('⚠️ GPS data without user_id, skipping:', newLocation.device_id)
+            return
+          }
+
           // Fetch profile data
           const { data: profile } = await supabase
             .from('profiles')
@@ -364,7 +370,10 @@ export function LiveTrackingMap({
             .eq('id', newLocation.user_id)
             .single()
 
-          if (!profile) return
+          if (!profile) {
+            console.log('⚠️ Profile not found for user_id:', newLocation.user_id)
+            return
+          }
 
           const personnelLocation: PersonnelLocation = {
             ...newLocation,
