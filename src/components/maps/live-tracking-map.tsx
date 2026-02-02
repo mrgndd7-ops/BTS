@@ -37,6 +37,7 @@ interface LiveTrackingMapProps {
   municipalityId?: string
   showTrails?: boolean
   onPersonnelClick?: (personnelId: string) => void
+  isSuperAdmin?: boolean // SUPER ADMIN: Show all municipalities
 }
 
 export function LiveTrackingMap({
@@ -45,7 +46,8 @@ export function LiveTrackingMap({
   zoom = 12,
   municipalityId,
   showTrails = true,
-  onPersonnelClick
+  onPersonnelClick,
+  isSuperAdmin = false
 }: LiveTrackingMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
@@ -382,8 +384,13 @@ export function LiveTrackingMap({
         `)
         .order('recorded_at', { ascending: false })
       
+      // SUPER ADMIN: Show ALL municipalities
+      if (isSuperAdmin) {
+        console.log('🌟 SUPER ADMIN - Loading all Turkey locations')
+      }
       // Multi-tenant isolation: Filter by municipality if provided
-      if (municipalityId) {
+      else if (municipalityId) {
+        console.log('🔒 Filtering by municipality:', municipalityId)
         query = query.eq('municipality_id', municipalityId)
       }
       
@@ -438,8 +445,12 @@ export function LiveTrackingMap({
             return
           }
 
+          // SUPER ADMIN: Show all municipalities
+          if (isSuperAdmin) {
+            // Allow all municipalities
+          }
           // Multi-tenant isolation: Skip if different municipality
-          if (municipalityId && newLocation.municipality_id !== municipalityId) {
+          else if (municipalityId && newLocation.municipality_id !== municipalityId) {
             return
           }
 

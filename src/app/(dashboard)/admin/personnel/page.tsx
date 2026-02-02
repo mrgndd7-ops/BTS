@@ -42,6 +42,7 @@ export default function PersonnelPage() {
 
     const loadPersonnel = async () => {
       console.log('👥 Personel listesi yükleniyor...')
+      console.log('🏢 Admin role:', profile?.role)
       console.log('🏢 Admin municipality_id:', profile?.municipality_id)
       
       // Build query with municipality filter
@@ -50,8 +51,12 @@ export default function PersonnelPage() {
         .select('*')
         .eq('role', 'personnel')
       
+      // SUPER ADMIN: Tüm belediyelerdeki personelleri görebilir
+      if (profile?.role === 'super_admin') {
+        console.log('🌟 SUPER ADMIN - Tüm Türkiye personelleri gösteriliyor!')
+      }
       // Multi-tenant isolation: Only show personnel from same municipality
-      if (profile?.municipality_id) {
+      else if (profile?.municipality_id) {
         console.log('🔒 Multi-tenant filter aktif:', profile.municipality_id)
         query = query.eq('municipality_id', profile.municipality_id)
       } else {

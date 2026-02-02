@@ -234,6 +234,7 @@ export default function AdminDashboardPage() {
             zoom={11}
             municipalityId={profile?.municipality_id || undefined}
             showTrails={true}
+            isSuperAdmin={profile?.role === 'super_admin'}
             onPersonnelClick={async (userId) => {
               // Personel bilgilerini fetch et
               const supabase = createClient()
