@@ -35,47 +35,25 @@ export default function PersonnelDetailPage() {
   const [personnel, setPersonnel] = useState<PersonnelDetail | null>(null)
   const [locations, setLocations] = useState<GPSLocation[]>([])
   const [map, setMap] = useState<maplibregl.Map | null>(null)
-  const [isPersonnelLoading, setIsPersonnelLoading] = useState(true)
-  const [personnelNotFound, setPersonnelNotFound] = useState(false)
 
-  // 🔒 Güvenli ID parse
-  const rawId = params.id
-  const personnelId = Array.isArray(rawId) ? rawId[0] : rawId
+  const personnelId = params.id as string
 
   // Personel bilgilerini yükle
   useEffect(() => {
     const loadPersonnel = async () => {
-      if (!personnelId) {
-        setIsPersonnelLoading(false)
-        setPersonnelNotFound(true)
-        return
-      }
-
-      setIsPersonnelLoading(true)
-      
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', personnelId)
-        .maybeSingle()
+        .single()
 
-      if (error) {
-        console.error('Personnel load error:', error)
-      }
-
-      if (!data) {
-        setPersonnelNotFound(true)
-        setPersonnel(null)
-      } else {
+      if (data) {
         setPersonnel(data)
-        setPersonnelNotFound(false)
       }
-
-      setIsPersonnelLoading(false)
     }
 
     loadPersonnel()
-  }, [personnelId, supabase])
+  }, [personnelId])
 
   // GPS lokasyonlarını yükle
   useEffect(() => {
@@ -218,39 +196,8 @@ export default function PersonnelDetailPage() {
     }
   }, [map, locations, personnel])
 
-  // Loading state
-  if (isPersonnelLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
-          <p className="text-slate-400">Personel bilgileri yükleniyor...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Not found state
-  if (personnelNotFound || !personnel) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4">
-            <MapPin className="h-8 w-8 text-slate-500" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-2">Personel Bulunamadı</h3>
-            <p className="text-slate-400 mb-4">
-              Bu personel mevcut değil veya profil okunamadı.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Geri Dön
-          </Button>
-        </div>
-      </div>
-    )
+  if (!personnel) {
+    return <div className="p-6">Yükleniyor...</div>
   }
 
   const latestLocation = locations[0]
