@@ -19,6 +19,30 @@ function LoginForm() {
   const { login } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
+  // CRITICAL: Login sayfası mount olduğunda eski session'ı temizle
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      // Clear ALL Supabase cookies and storage
+      const cookies = document.cookie.split(';')
+      cookies.forEach(cookie => {
+        const name = cookie.split('=')[0].trim()
+        if (name.includes('sb-') || name.includes('auth') || name.includes('supabase')) {
+          document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+          document.cookie = `${name}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        }
+      })
+      
+      // Clear localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes('sb-') || key.includes('auth') || key.includes('supabase')) {
+          localStorage.removeItem(key)
+        }
+      })
+      
+      console.log('🧹 Login page: Old session cleaned')
+    }
+  })
+
   const {
     register,
     handleSubmit,
