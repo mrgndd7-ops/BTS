@@ -87,6 +87,81 @@ export function useGPSTracking(taskId?: string | null) {
   }, [user?.id]) // FIXED: Removed supabase from dependencies
 
   /**
+   * Konum iznini kontrol et ve gerekirse iste
+   * Browser Geolocation API kullanarak gerçek izin kontrolü
+   */
+  const checkPermission = useCallback(async (): Promise<boolean> => {
+    // 🔥 CRITICAL: Client-side only
+    if (!isClient || typeof window === 'undefined' || typeof navigator === 'undefined') {
+      console.warn('⚠️ checkPermission called on server-side, skipping')
+      return false
+    }
+    
+    try {
+      console.log('🔐 GPS izni kontrol ediliyor...')
+      
+      // 1. Önce permission API ile durumu kontrol et
+      if ('permissions' in navigator) {
+        const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
+        console.log('📋 Permission state:', permission.state)
+        
+        if (permission.state === 'denied') {
+          console.error('❌ GPS izni kalıcı olarak reddedilmiş')
+          setPermissionStatus('denied')
+          setError('GPS izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
+          return false
+        }
+        
+        setPermissionStatus(permission.state === 'granted' ? 'granted' : 'prompt')
+      }
+      
+      // 2. Gerçek konum isteği ile izni test et
+      return new Promise<boolean>((resolve) => {
+        console.log('📍 Browser Geolocation API ile konum isteniyor...')
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('✅ GPS izni verildi:', {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy
+            })
+            setPermissionStatus('granted')
+            setError(null)
+            resolve(true)
+          },
+          (error) => {
+            console.error('❌ GPS izin hatası:', error.code, error.message)
+            
+            if (error.code === 1) { // PERMISSION_DENIED
+              setPermissionStatus('denied')
+              setError('GPS izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
+              resolve(false)
+            } else if (error.code === 2) { // POSITION_UNAVAILABLE
+              setError('GPS konumu alınamıyor. Lütfen cihazınızın GPS ayarlarını kontrol edin.')
+              resolve(false)
+            } else if (error.code === 3) { // TIMEOUT
+              setError('GPS zaman aşımı. Lütfen tekrar deneyin.')
+              resolve(false)
+            } else {
+              setError('GPS hatası: ' + error.message)
+              resolve(false)
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        )
+      })
+    } catch (err) {
+      console.error('❌ Permission check error:', err)
+      return true // Safari ve eski tarayıcılar için fallback
+    }
+  }, [isClient])
+
+  /**
    * Radar.io ile tek seferlik konum al
    */
   const trackOnce = useCallback(async (): Promise<LocationData | null> => {
@@ -200,7 +275,7 @@ export function useGPSTracking(taskId?: string | null) {
     }, 5000) // 5 saniye
 
     return true
-  }, [isClient, trackOnce, checkPermission])
+  }, [isClient, checkPermission, trackOnce])
 
   /**
    * GPS tracking'i durdur
@@ -213,81 +288,6 @@ export function useGPSTracking(taskId?: string | null) {
     setIsTracking(false)
     setCurrentLocation(null)
   }, [])
-
-  /**
-   * Konum iznini kontrol et ve gerekirse iste
-   * Browser Geolocation API kullanarak gerçek izin kontrolü
-   */
-  const checkPermission = useCallback(async (): Promise<boolean> => {
-    // 🔥 CRITICAL: Client-side only
-    if (!isClient || typeof window === 'undefined' || typeof navigator === 'undefined') {
-      console.warn('⚠️ checkPermission called on server-side, skipping')
-      return false
-    }
-    
-    try {
-      console.log('🔐 GPS izni kontrol ediliyor...')
-      
-      // 1. Önce permission API ile durumu kontrol et
-      if ('permissions' in navigator) {
-        const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
-        console.log('📋 Permission state:', permission.state)
-        
-        if (permission.state === 'denied') {
-          console.error('❌ GPS izni kalıcı olarak reddedilmiş')
-          setPermissionStatus('denied')
-          setError('GPS izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
-          return false
-        }
-        
-        setPermissionStatus(permission.state === 'granted' ? 'granted' : 'prompt')
-      }
-      
-      // 2. Gerçek konum isteği ile izni test et
-      return new Promise<boolean>((resolve) => {
-        console.log('📍 Browser Geolocation API ile konum isteniyor...')
-        
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('✅ GPS izni verildi:', {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy
-            })
-            setPermissionStatus('granted')
-            setError(null)
-            resolve(true)
-          },
-          (error) => {
-            console.error('❌ GPS izin hatası:', error.code, error.message)
-            
-            if (error.code === 1) { // PERMISSION_DENIED
-              setPermissionStatus('denied')
-              setError('GPS izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
-              resolve(false)
-            } else if (error.code === 2) { // POSITION_UNAVAILABLE
-              setError('GPS konumu alınamıyor. Lütfen cihazınızın GPS ayarlarını kontrol edin.')
-              resolve(false)
-            } else if (error.code === 3) { // TIMEOUT
-              setError('GPS zaman aşımı. Lütfen tekrar deneyin.')
-              resolve(false)
-            } else {
-              setError('GPS hatası: ' + error.message)
-              resolve(false)
-            }
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          }
-        )
-      })
-    } catch (err) {
-      console.error('❌ Permission check error:', err)
-      return true // Safari ve eski tarayıcılar için fallback
-    }
-  }, [isClient])
 
   /**
    * Component unmount'ta tracking'i durdur
