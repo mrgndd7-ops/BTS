@@ -3,11 +3,16 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Clock, Play, Square, Loader2 } from 'lucide-react'
+
+// Dynamic import for GPS tracking (only in browser)
+let useGPSTracking: any = null
+if (typeof window !== 'undefined') {
+  useGPSTracking = require('@/lib/hooks/use-gps-tracking').useGPSTracking
+}
 
 interface Task {
   id: string
@@ -24,7 +29,13 @@ export function TaskList() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
   
-  const { isTracking, startTracking, stopTracking } = useGPSTracking(activeTaskId)
+  // Only call hook in browser
+  const gpsTracking = useGPSTracking ? useGPSTracking(activeTaskId) : {
+    isTracking: false,
+    startTracking: async () => false,
+    stopTracking: () => {}
+  }
+  const { isTracking, startTracking, stopTracking } = gpsTracking
 
   useEffect(() => {
     const loadTasks = async () => {
