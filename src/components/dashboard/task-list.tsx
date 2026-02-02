@@ -23,11 +23,15 @@ interface Task {
 export function TaskList() {
   const supabase = createClient()
   const { user } = useAuth()
+  
+  // STATE DECLARATIONs FIRST
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
-  const { isTracking, startTracking, stopTracking, currentLocation } = useGPSTracking(activeTaskId)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [startingTask, setStartingTask] = useState<string | null>(null)
+  
+  // HOOKS AFTER ALL STATE
+  const { isTracking, startTracking, stopTracking, currentLocation } = useGPSTracking(activeTaskId)
 
   // Görevleri yükle
   useEffect(() => {
