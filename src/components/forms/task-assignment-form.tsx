@@ -28,6 +28,8 @@ interface Personnel {
   id: string
   full_name: string
   department?: string
+  city?: string
+  municipality_id?: string
 }
 
 interface TaskAssignmentFormProps {
@@ -62,14 +64,20 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
         // Build query with municipality filter if available
         let query = supabase
           .from('profiles')
-          .select('id, full_name, department')
+          .select('id, full_name, department, city, municipality_id')
           .eq('role', 'personnel')
           .eq('status', 'active')
         
         // Multi-tenant isolation: Only show personnel from same municipality
-        if (profile?.municipality_id) {
+        // UNLESS user is super_admin (can see ALL personnel)
+        if (profile?.municipality_id && profile?.role !== 'super_admin') {
           query = query.eq('municipality_id', profile.municipality_id)
         }
+        
+        console.log('🔍 Loading personnel for task assignment:', {
+          isSuperAdmin: profile?.role === 'super_admin',
+          municipalityId: profile?.municipality_id
+        })
         
         const { data, error } = await query.order('full_name')
 
@@ -101,14 +109,29 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
 
     try {
       // 1. Kullanıcının belediye ID'sini al
-      const { data: profile, error: profileError } = await supabase
+      const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('municipality_id')
+        .select('municipality_id, role')
         .eq('id', user.id)
         .single()
 
-      if (!profile?.municipality_id) {
+      // Super admin için municipality_id kontrolü bypass
+      if (!userProfile?.municipality_id && userProfile?.role !== 'super_admin') {
         throw new Error('Belediye bilgisi bulunamadı. Lütfen profil bilgilerinizi tamamlayın.')
+      }
+
+      // Super admin için: Atanan personelin belediyesini kullan
+      let taskMunicipalityId = userProfile?.municipality_id
+      
+      if (userProfile?.role === 'super_admin' && !taskMunicipalityId) {
+        // Super admin görev oluştururken, atanan personelin belediyesini al
+        const { data: assignedPersonnel } = await supabase
+          .from('profiles')
+          .select('municipality_id')
+          .eq('id', data.assigned_to)
+          .single()
+        
+        taskMunicipalityId = assignedPersonnel?.municipality_id || null
       }
 
       // 2. Görev oluştur
@@ -122,7 +145,7 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
         scheduled_start: data.scheduled_start || null,
         status: 'assigned',
         created_by: user.id,
-        municipality_id: profile.municipality_id,
+        municipality_id: taskMunicipalityId,
       }
 
       const { data: newTask, error: taskError } = await supabase
@@ -137,16 +160,18 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
 
       // 3. Personele bildirim oluştur (hata olsa bile görev oluşturuldu sayılsın)
       try {
-        await supabase
-          .from('notifications')
-          .insert([{
-            user_id: data.assigned_to,
-            municipality_id: profile.municipality_id,
-            title: 'Yeni Görev Atandı',
-            body: `"${data.title}" görevine atandınız`,
-            type: 'task_assigned',
-            data: { task_id: newTask.id, task_title: data.title }
-          }])
+        if (taskMunicipalityId) {
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: data.assigned_to,
+              municipality_id: taskMunicipalityId,
+              title: 'Yeni Görev Atandı',
+              body: `"${data.title}" görevine atandınız`,
+              type: 'task_assigned',
+              data: { task_id: newTask.id, task_title: data.title }
+            }])
+        }
       } catch (notifError) {
         // Bildirim hatası görev oluşturulmasını engellemez
       }
@@ -224,7 +249,9 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
               <option value="">Personel seçin...</option>
               {personnel.map((person) => (
                 <option key={person.id} value={person.id}>
-                  {person.full_name} {person.department && `(${person.department})`}
+                  {person.full_name}
+                  {person.city && ` - ${person.city}`}
+                  {person.department && ` (${person.department})`}
                 </option>
               ))}
             </select>
