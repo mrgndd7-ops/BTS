@@ -209,13 +209,19 @@ export function LiveTrackingMap({
     // Fetch recent locations for trail (last 1 hour)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     
-    const { data: trailData } = await supabase
+    // 🔧 FIX: Use maybeSingle() to prevent 406 errors
+    const { data: trailData, error } = await supabase
       .from('gps_locations')
       .select('latitude, longitude, recorded_at')
       .eq('user_id', userId)
       .gte('recorded_at', oneHourAgo)
       .order('recorded_at', { ascending: true })
       .limit(100)
+
+    if (error) {
+      console.error('❌ Trail fetch error:', error)
+      return
+    }
 
     if (!trailData || trailData.length < 2) return
 
@@ -355,8 +361,10 @@ export function LiveTrackingMap({
   useEffect(() => {
     if (!isLoaded) return
 
+    console.log('🚀 Initializing GPS tracking map...')
+
     // Load initial personnel data
-    ;(async () => {
+    const loadInitialData = async () => {
       let query = supabase
         .from('gps_locations')
         .select(`
@@ -396,7 +404,12 @@ export function LiveTrackingMap({
       
       const { data, error } = await query
 
-      if (error || !data) return
+      if (error) {
+        console.error('❌ Initial data load error:', error)
+        return
+      }
+
+      if (!data) return
 
       const latestLocations = new Map<string, PersonnelLocation>()
       data.forEach((location: any) => {
@@ -408,6 +421,7 @@ export function LiveTrackingMap({
         }
       })
 
+      console.log('📊 Initial locations loaded:', latestLocations.size)
       setPersonnelLocations(latestLocations)
 
       latestLocations.forEach(personnel => {
@@ -424,51 +438,55 @@ export function LiveTrackingMap({
         })
         map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 })
       }
-    })()
+    }
 
+    loadInitialData()
+
+    // 🔧 FIX: Setup realtime subscription ONCE with empty dependency array
     const channel = supabase
-      .channel('live-gps-tracking')
+      .channel('gps-tracking-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to ALL events (INSERT, UPDATE, DELETE)
+          event: 'INSERT', // Only listen to INSERT events (new GPS data)
           schema: 'public',
           table: 'gps_locations'
         },
         async (payload) => {
-          console.log('🔔 Realtime Event:', payload.eventType, payload)
+          console.log('🔔 GPS Insert Event:', payload)
           
           const newLocation = payload.new as any
 
           // Eğer user_id yoksa (device mapping yok), skip et
           if (!newLocation.user_id) {
+            console.warn('⚠️ GPS location without user_id, skipping')
             return
           }
 
-          // ⚠️ MULTI-TENANT DEVREDİŞI
-          // NO MUNICIPALITY FILTER - Show ALL Turkey
-          // Gelecekte aktif etmek için: MULTI_TENANT_BACKUP.md
-
           // Fetch profile and task data
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('id, full_name, role, avatar_url')
             .eq('id', newLocation.user_id)
-            .single()
+            .maybeSingle()
 
-          if (!profile) {
+          if (profileError || !profile) {
+            console.error('❌ Profile fetch error:', profileError)
             return
           }
 
           // Fetch task data if task_id exists
           let taskData = null
           if (newLocation.task_id) {
-            const { data: task } = await supabase
+            const { data: task, error: taskError } = await supabase
               .from('tasks')
               .select('id, status, title')
               .eq('id', newLocation.task_id)
-              .single()
-            taskData = task
+              .maybeSingle()
+            
+            if (!taskError && task) {
+              taskData = task
+            }
           }
 
           const personnelLocation: PersonnelLocation = {
@@ -477,10 +495,11 @@ export function LiveTrackingMap({
             tasks: taskData
           }
 
-          console.log('📍 Location güncelleniyor:', {
+          console.log('📍 Marker güncelleniyor:', {
             user: profile.full_name,
             lat: newLocation.latitude,
             lng: newLocation.longitude,
+            task_id: newLocation.task_id,
             task_status: taskData?.status
           })
 
@@ -496,19 +515,20 @@ export function LiveTrackingMap({
           
           // Update trail
           if (showTrails) {
-            console.log('🛤️ Trail güncelleniyor...')
             updatePersonnelTrail(newLocation.user_id)
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status)
+        console.log('📡 Realtime status:', status)
       })
 
+    // Cleanup on unmount
     return () => {
+      console.log('🧹 Cleaning up GPS tracking subscription')
       supabase.removeChannel(channel)
     }
-  }, [isLoaded]) // REMOVED: supabase, updatePersonnelMarker, updatePersonnelTrail, showTrails
+  }, []) // 🔥 EMPTY DEPENDENCY ARRAY - Subscribe once!
 
   return (
     <div className={cn('relative', className)}>
