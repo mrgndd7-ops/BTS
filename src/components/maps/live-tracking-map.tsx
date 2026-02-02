@@ -445,14 +445,9 @@ export function LiveTrackingMap({
             return
           }
 
-          // SUPER ADMIN: Show all municipalities
-          if (isSuperAdmin) {
-            // Allow all municipalities
-          }
-          // Multi-tenant isolation: Skip if different municipality
-          else if (municipalityId && newLocation.municipality_id !== municipalityId) {
-            return
-          }
+          // ⚠️ MULTI-TENANT DEVREDİŞI
+          // NO MUNICIPALITY FILTER - Show ALL Turkey
+          // Gelecekte aktif etmek için: MULTI_TENANT_BACKUP.md
 
           // Fetch profile and task data
           const { data: profile } = await supabase

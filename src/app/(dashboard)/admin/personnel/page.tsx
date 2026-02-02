@@ -42,26 +42,16 @@ export default function PersonnelPage() {
 
     const loadPersonnel = async () => {
       console.log('👥 Personel listesi yükleniyor...')
-      console.log('🏢 Admin role:', profile?.role)
-      console.log('🏢 Admin municipality_id:', profile?.municipality_id)
+      console.log('🌍 Multi-tenant: DEVREDİŞI - Tüm Türkiye gösteriliyor')
       
-      // Build query with municipality filter
+      // Build query - NO MUNICIPALITY FILTER
       let query = supabase
         .from('profiles')
         .select('*')
         .eq('role', 'personnel')
       
-      // SUPER ADMIN: Tüm belediyelerdeki personelleri görebilir
-      if (profile?.role === 'super_admin') {
-        console.log('🌟 SUPER ADMIN - Tüm Türkiye personelleri gösteriliyor!')
-      }
-      // Multi-tenant isolation: Only show personnel from same municipality
-      else if (profile?.municipality_id) {
-        console.log('🔒 Multi-tenant filter aktif:', profile.municipality_id)
-        query = query.eq('municipality_id', profile.municipality_id)
-      } else {
-        console.warn('⚠️ Municipality ID yok! Tüm personeller gösterilecek!')
-      }
+      // ⚠️ MULTI-TENANT DEVREDİŞI
+      // Gelecekte aktif etmek için: MULTI_TENANT_BACKUP.md
       
       const { data: profilesData, error: personnelError } = await query.order('full_name')
       
