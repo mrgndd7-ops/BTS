@@ -75,6 +75,7 @@ export type Database = {
           id: string
           device_id: string
           user_id: string | null
+          task_id: string | null
           municipality_id: string | null
           latitude: number
           longitude: number
@@ -90,6 +91,7 @@ export type Database = {
           id?: string
           device_id: string
           user_id?: string | null
+          task_id?: string | null
           municipality_id?: string | null
           latitude: number
           longitude: number
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           device_id?: string
           user_id?: string | null
+          task_id?: string | null
           municipality_id?: string | null
           latitude?: number
           longitude?: number
@@ -225,6 +228,7 @@ export type Database = {
           title: string
           description: string | null
           status: string
+          priority: string
           assigned_vehicle: string | null
           scheduled_miles: number | null
           completed_miles: number | null
@@ -234,6 +238,9 @@ export type Database = {
           photo_count: number
           started_at: string | null
           completed_at: string | null
+          location_lat: number | null
+          location_lng: number | null
+          location_address: string | null
           created_at: string
           updated_at: string
         }
@@ -247,6 +254,7 @@ export type Database = {
           title: string
           description?: string | null
           status?: string
+          priority?: string
           assigned_vehicle?: string | null
           scheduled_miles?: number | null
           completed_miles?: number | null
@@ -256,6 +264,9 @@ export type Database = {
           photo_count?: number
           started_at?: string | null
           completed_at?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          location_address?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -269,6 +280,7 @@ export type Database = {
           title?: string
           description?: string | null
           status?: string
+          priority?: string
           assigned_vehicle?: string | null
           scheduled_miles?: number | null
           completed_miles?: number | null
@@ -278,6 +290,9 @@ export type Database = {
           photo_count?: number
           started_at?: string | null
           completed_at?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          location_address?: string | null
           created_at?: string
           updated_at?: string
         }
