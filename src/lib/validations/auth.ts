@@ -42,7 +42,15 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .min(1, 'Telefon numarası gereklidir')
-    .regex(/^(\+90|0)?[5][0-9]{9}$/, 'Geçerli bir telefon numarası giriniz (örn: 05551234567)'),
+    .regex(/^(0|(\+90))?5[0-9]{9}$/, 'Geçerli bir Türkiye telefon numarası giriniz')
+    .refine((val) => {
+      // Sadece rakam say (+ ve 0 hariç)
+      const digits = val.replace(/[^0-9]/g, '')
+      // +90 veya 0 ile başlıyorsa 11 hane, yoksa 10 hane olmalı
+      if (val.startsWith('+90')) return digits.length === 12 // +90 5XX XXX XX XX
+      if (val.startsWith('0')) return digits.length === 11 // 0 5XX XXX XX XX
+      return digits.length === 10 // 5XX XXX XX XX
+    }, 'Telefon numarası 10 haneli olmalıdır (örn: 05XX XXX XX XX)'),
   city: z.string().min(1, 'İl seçimi gereklidir'),
   municipality_id: z.string().min(1, 'Belediye seçimi gereklidir'),
   department: z.string().optional(),
@@ -63,7 +71,13 @@ export const profileSchema = z.object({
   phone: z
     .string()
     .min(1, 'Telefon numarası gereklidir')
-    .regex(/^(\+90|0)?[5][0-9]{9}$/, 'Geçerli bir telefon numarası giriniz'),
+    .regex(/^(0|(\+90))?5[0-9]{9}$/, 'Geçerli bir Türkiye telefon numarası giriniz')
+    .refine((val) => {
+      const digits = val.replace(/[^0-9]/g, '')
+      if (val.startsWith('+90')) return digits.length === 12
+      if (val.startsWith('0')) return digits.length === 11
+      return digits.length === 10
+    }, 'Telefon numarası 10 haneli olmalıdır (örn: 05XX XXX XX XX)'),
   city: z.string().min(1, 'İl seçimi gereklidir'),
   municipality_id: z.string().min(1, 'Belediye seçimi gereklidir'),
   department: z.string().optional(),
