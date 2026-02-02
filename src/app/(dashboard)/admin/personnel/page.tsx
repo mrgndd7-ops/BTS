@@ -38,73 +38,86 @@ export default function PersonnelPage() {
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active')
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
     const loadPersonnel = async () => {
-      console.log('👥 Personel listesi yükleniyor...')
-      console.log('🌍 Multi-tenant: DEVREDİŞI - Tüm Türkiye gösteriliyor')
-      
-      // Build query - NO MUNICIPALITY FILTER
-      let query = supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'personnel')
-      
-      // ⚠️ MULTI-TENANT DEVREDİŞI
-      // Gelecekte aktif etmek için: MULTI_TENANT_BACKUP.md
-      
-      const { data: profilesData, error: personnelError } = await query.order('full_name')
-      
-      if (personnelError) {
-        console.error('❌ Personel yükleme hatası:', personnelError)
-      }
-      
-      console.log('📋 Bulunan personel sayısı:', profilesData?.length || 0)
+      try {
+        console.log('👥 Personel listesi yükleniyor...')
+        console.log('🌍 Multi-tenant: DEVREDİŞİ - Tüm Türkiye gösteriliyor')
+        
+        setLoading(true)
+        
+        // Build query - NO MUNICIPALITY FILTER
+        let query = supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'personnel')
+        
+        // ⚠️ MULTI-TENANT DEVREDİŞI
+        // Gelecekte aktif etmek için: MULTI_TENANT_BACKUP.md
+        
+        const { data: profilesData, error: personnelError } = await query.order('full_name')
+        
+        if (personnelError) {
+          console.error('❌ Personel yükleme hatası:', personnelError)
+          setLoading(false)
+          return
+        }
+        
+        console.log('📋 Bulunan personel sayısı:', profilesData?.length || 0)
 
-      if (!profilesData) {
-        setLoading(false)
-        return
-      }
+        if (!profilesData || profilesData.length === 0) {
+          setPersonnel([])
+          setLoading(false)
+          return
+        }
 
-      const filtered = filter === 'all' 
-        ? profilesData 
-        : profilesData.filter(p => p.status === filter)
+        const filtered = filter === 'all' 
+          ? profilesData 
+          : profilesData.filter(p => p.status === filter)
 
-      // OPTIMIZED: Batch GPS query instead of N+1
-      const personnelIds = filtered.map(p => p.id)
-      
-      if (personnelIds.length > 0) {
-        // Get latest location for each personnel in a single query
-        const { data: allLocations } = await supabase
-          .from('gps_locations')
-          .select('user_id, latitude, longitude, recorded_at')
-          .in('user_id', personnelIds)
-          .order('recorded_at', { ascending: false })
+        // OPTIMIZED: Batch GPS query instead of N+1
+        const personnelIds = filtered.map(p => p.id)
+        
+        if (personnelIds.length > 0) {
+          // Get latest location for each personnel in a single query
+          const { data: allLocations } = await supabase
+            .from('gps_locations')
+            .select('user_id, latitude, longitude, recorded_at')
+            .in('user_id', personnelIds)
+            .order('recorded_at', { ascending: false })
 
-        // Group by user_id and take the latest
-        const latestByUser = new Map<string, any>()
-        allLocations?.forEach(loc => {
-          if (!latestByUser.has(loc.user_id)) {
-            latestByUser.set(loc.user_id, loc)
-          }
-        })
+          // Group by user_id and take the latest
+          const latestByUser = new Map<string, any>()
+          allLocations?.forEach(loc => {
+            if (!latestByUser.has(loc.user_id)) {
+              latestByUser.set(loc.user_id, loc)
+            }
+          })
 
-        // Merge locations with personnel data
-        const personnelWithLocations = filtered.map(person => ({
-          ...person,
-          latest_location: latestByUser.get(person.id) || null
-        }))
+          // Merge locations with personnel data
+          const personnelWithLocations = filtered.map(person => ({
+            ...person,
+            latest_location: latestByUser.get(person.id) || null
+          }))
 
-        setPersonnel(personnelWithLocations)
-      } else {
+          setPersonnel(personnelWithLocations)
+        } else {
+          setPersonnel([])
+        }
+      } catch (err) {
+        console.error('❌ Personel yükleme genel hatası:', err)
         setPersonnel([])
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
     loadPersonnel()
-  }, [user, filter])
+  }, [user, filter]) // FIXED: Removed supabase from dependencies (mobile crash fix)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
