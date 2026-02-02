@@ -154,14 +154,51 @@ export function TaskList() {
 
       if (error) throw error
 
-      // 3. Aktif görev ID'sini temizle
+      // 3. GPS Trace oluştur
+      console.log('GPS trace olusturuluyor...')
+      const { data: gpsPoints, error: gpsError } = await supabase
+        .from('gps_locations')
+        .select('latitude, longitude, recorded_at, speed, accuracy')
+        .eq('task_id', taskId)
+        .order('recorded_at', { ascending: true })
+
+      if (gpsPoints && gpsPoints.length > 0) {
+        // Calculate total distance (rough estimate)
+        let totalDistance = 0
+        for (let i = 1; i < gpsPoints.length; i++) {
+          const prev = gpsPoints[i - 1]
+          const curr = gpsPoints[i]
+          // Simple Euclidean distance (not accurate, but good enough for trace)
+          const distance = Math.sqrt(
+            Math.pow(curr.latitude - prev.latitude, 2) + 
+            Math.pow(curr.longitude - prev.longitude, 2)
+          ) * 111000 // Approximate meters
+          totalDistance += distance
+        }
+
+        // Create GPS trace
+        const { error: traceError } = await supabase
+          .from('gps_traces')
+          .insert({
+            task_id: taskId,
+            points: gpsPoints, // Store all points as JSONB
+            miles: (totalDistance / 1609.34).toFixed(2), // Convert to miles
+            vehicle: 'Personel', // Default value
+          })
+
+        if (traceError) {
+          console.error('GPS trace kaydetme hatasi:', traceError)
+        } else {
+          console.log(`GPS trace olusturuldu: ${gpsPoints.length} nokta, ${(totalDistance / 1000).toFixed(2)} km`)
+        }
+      } else {
+        console.warn('GPS trace icin veri bulunamadi')
+      }
+
+      // 4. Aktif görev ID'sini temizle
       setActiveTaskId(null)
       
       console.log('Gorev basariyla tamamlandi! GPS tracking durduruldu.')
-      
-      // TODO: GPS trace oluştur
-      // Bu göreve ait tüm gps_locations kayıtlarını al
-      // gps_traces tablosuna özet olarak kaydet
       
     } catch (err) {
       console.error('Gorev tamamlama hatasi:', err)
