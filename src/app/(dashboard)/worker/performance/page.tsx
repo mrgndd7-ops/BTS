@@ -94,7 +94,7 @@ export default function PerformancePage() {
     }
 
     loadPerformance()
-  }, [user, supabase])
+  }, [user]) // FIXED: Removed supabase from dependencies (mobile crash fix)
 
   if (loading) {
     return (

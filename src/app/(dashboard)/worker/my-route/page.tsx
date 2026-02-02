@@ -59,7 +59,7 @@ export default function MyRoutePage() {
     }
 
     loadMyTasks()
-  }, [user, supabase])
+  }, [user]) // FIXED: Removed supabase from dependencies (mobile crash fix)
 
   // Haritaya rotaları çiz
   useEffect(() => {
