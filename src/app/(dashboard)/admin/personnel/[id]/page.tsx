@@ -53,7 +53,7 @@ export default function PersonnelDetailPage() {
     }
 
     loadPersonnel()
-  }, [personnelId, supabase])
+  }, [personnelId])
 
   // GPS lokasyonlarını yükle
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function PersonnelDetailPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [personnelId, supabase])
+  }, [personnelId])
 
   // Haritaya lokasyonları çiz
   useEffect(() => {

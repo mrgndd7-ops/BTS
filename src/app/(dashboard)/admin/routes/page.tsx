@@ -96,8 +96,7 @@ export default function RoutesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase])
+  }, [])
 
   const filteredPersonnel = personnel.filter(p => {
     if (filter === 'all') return true

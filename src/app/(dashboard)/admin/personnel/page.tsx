@@ -97,7 +97,7 @@ export default function PersonnelPage() {
     }
 
     loadPersonnel()
-  }, [user, supabase, filter])
+  }, [user, filter])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
