@@ -397,11 +397,13 @@ export function LiveTrackingMap({
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to ALL events (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'gps_locations'
         },
         async (payload) => {
+          console.log('🔔 Realtime Event:', payload.eventType, payload)
+          
           const newLocation = payload.new as any
 
           // Eğer user_id yoksa (device mapping yok), skip et
@@ -442,6 +444,13 @@ export function LiveTrackingMap({
             tasks: taskData
           }
 
+          console.log('📍 Location güncelleniyor:', {
+            user: profile.full_name,
+            lat: newLocation.latitude,
+            lng: newLocation.longitude,
+            task_status: taskData?.status
+          })
+
           // Update state
           setPersonnelLocations(prev => {
             const updated = new Map(prev)
@@ -454,11 +463,14 @@ export function LiveTrackingMap({
           
           // Update trail
           if (showTrails) {
+            console.log('🛤️ Trail güncelleniyor...')
             updatePersonnelTrail(newLocation.user_id)
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status)
+      })
 
     return () => {
       supabase.removeChannel(channel)
