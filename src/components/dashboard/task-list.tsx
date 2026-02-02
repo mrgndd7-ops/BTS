@@ -34,6 +34,7 @@ export function TaskList() {
     if (!user) return
 
     const loadTasks = async () => {
+      setLoading(true)
       const { data } = await supabase
         .from('tasks')
         .select('*')
@@ -61,14 +62,25 @@ export function TaskList() {
           filter: `assigned_to=eq.${user.id}`
         },
         (payload) => {
+          console.log('📋 Task realtime update:', payload.eventType, payload)
+          
           if (payload.eventType === 'INSERT') {
             setTasks((prev) => [payload.new as Task, ...prev])
           } else if (payload.eventType === 'UPDATE') {
-            setTasks((prev) =>
-              prev.map((task) =>
-                task.id === (payload.new as Task).id ? (payload.new as Task) : task
+            const updatedTask = payload.new as Task
+            
+            // Eğer task completed oldu ise listeden çıkar
+            if (updatedTask.status === 'completed' || updatedTask.status === 'cancelled') {
+              console.log('✅ Task completed/cancelled, listeden kaldırılıyor:', updatedTask.id)
+              setTasks((prev) => prev.filter((task) => task.id !== updatedTask.id))
+            } else {
+              // Güncelle
+              setTasks((prev) =>
+                prev.map((task) =>
+                  task.id === updatedTask.id ? updatedTask : task
+                )
               )
-            )
+            }
           } else if (payload.eventType === 'DELETE') {
             setTasks((prev) => prev.filter((task) => task.id !== (payload.old as Task).id))
           }
