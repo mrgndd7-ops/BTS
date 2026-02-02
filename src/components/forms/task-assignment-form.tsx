@@ -54,17 +54,11 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
   // Personel listesini yükle
   useEffect(() => {
     const loadPersonnel = async () => {
-      console.log('👥 Personel listesi yükleniyor...')
-      console.log('👤 Current user:', user)
-      
       if (!user) {
-        console.log('❌ User yok, yükleme atlanıyor')
         return
       }
 
       try {
-        console.log('📡 Supabase query başlatılıyor...')
-        
         // Build query with municipality filter if available
         let query = supabase
           .from('profiles')
@@ -79,24 +73,18 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
         
         const { data, error } = await query.order('full_name')
 
-        console.log('📊 Query sonucu:', { data, error, count: data?.length })
-
         if (error) {
-          console.error('❌ Personnel loading error:', error)
           setError('Personel listesi yüklenemedi: ' + error.message)
           return
         }
 
         if (!data || data.length === 0) {
-          console.warn('⚠️ Aktif personel bulunamadı!')
           setPersonnel([])
           return
         }
 
-        console.log('✅ Personnel loaded successfully:', data)
         setPersonnel(data)
       } catch (err) {
-        console.error('❌ Personnel loading exception:', err)
         setError('Personel listesi yüklenirken bir hata oluştu')
       }
     }
@@ -119,8 +107,6 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
         .eq('id', user.id)
         .single()
 
-      console.log('Profile data:', profile, 'Error:', profileError)
-
       if (!profile?.municipality_id) {
         throw new Error('Belediye bilgisi bulunamadı. Lütfen profil bilgilerinizi tamamlayın.')
       }
@@ -139,18 +125,13 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
         municipality_id: profile.municipality_id,
       }
 
-      console.log('Creating task with data:', taskData)
-
       const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert([taskData])
         .select()
         .single()
 
-      console.log('Task creation result:', newTask, 'Error:', taskError)
-
       if (taskError) {
-        console.error('Task error details:', taskError)
         throw new Error(`Görev oluşturulamadı: ${taskError.message}`)
       }
 
@@ -166,9 +147,7 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
             type: 'task_assigned',
             data: { task_id: newTask.id, task_title: data.title }
           }])
-        console.log('Notification created successfully')
       } catch (notifError) {
-        console.warn('Bildirim oluşturulamadı:', notifError)
         // Bildirim hatası görev oluşturulmasını engellemez
       }
 
@@ -186,7 +165,6 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
       // 3 saniye sonra success mesajını kaldır
       setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
-      console.error('Task creation error:', err)
       setError(err instanceof Error ? err.message : 'Görev oluşturulamadı. Lütfen tekrar deneyin.')
     } finally {
       setIsSubmitting(false)

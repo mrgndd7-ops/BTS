@@ -37,7 +37,6 @@ export function useGPSTracking(taskId?: string | null) {
    */
   const saveLocationToDatabase = useCallback(async (location: LocationData) => {
     if (!user?.id) {
-      console.warn('User ID yok, konum kaydedilemedi')
       return
     }
 
@@ -45,7 +44,7 @@ export function useGPSTracking(taskId?: string | null) {
       // Device ID oluştur (user_id bazlı)
       const deviceId = `radar-web-${user.id.slice(0, 8)}`
       
-      const { error: insertError } = await supabase
+      await supabase
         .from('gps_locations')
         .insert({
           device_id: deviceId,
@@ -59,14 +58,8 @@ export function useGPSTracking(taskId?: string | null) {
           altitude: location.altitude,
           recorded_at: new Date(location.timestamp).toISOString()
         })
-
-      if (insertError) {
-        console.error('GPS veri kaydetme hatasi:', insertError)
-      } else {
-        console.log('GPS verisi Supabase kaydedildi', currentTaskIdRef.current ? `(Task: ${currentTaskIdRef.current})` : '')
-      }
     } catch (err) {
-      console.error('GPS veri kaydetme exception:', err)
+      // Silently fail - GPS tracking shouldn't break app
     }
   }, [user?.id, supabase])
 
@@ -82,7 +75,6 @@ export function useGPSTracking(taskId?: string | null) {
 
     try {
       setError(null)
-      console.log('Radar.io ile konum aliniyor...')
 
       const result = await Radar.trackOnce()
       
@@ -97,7 +89,6 @@ export function useGPSTracking(taskId?: string | null) {
           altitude: result.location.altitude || null
         }
 
-        console.log('Konum alindi:', locationData)
         setCurrentLocation(locationData)
         setPermissionStatus('granted')
 
@@ -109,8 +100,6 @@ export function useGPSTracking(taskId?: string | null) {
         throw new Error('Konum verisi alınamadı')
       }
     } catch (err: any) {
-      console.error('Radar.io trackOnce hatasi:', err)
-      
       let errorMessage = 'Konum alınamadı'
       if (err.message?.includes('permission')) {
         errorMessage = 'Konum izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.'
@@ -128,8 +117,6 @@ export function useGPSTracking(taskId?: string | null) {
    * Periyodik GPS tracking başlat (her 10 saniyede bir)
    */
   const startTracking = useCallback(async (): Promise<boolean> => {
-    console.log('GPS tracking baslatiliyor...')
-
     // Radar.io'yu initialize et
     const initialized = initializeRadar()
     if (!initialized) {
@@ -149,11 +136,9 @@ export function useGPSTracking(taskId?: string | null) {
 
     // Her 10 saniyede bir konum al
     trackingIntervalRef.current = setInterval(async () => {
-      console.log('Periyodik konum guncellemesi...')
       await trackOnce()
     }, 10000) // 10 saniye
 
-    console.log('GPS tracking basariyla baslatildi (10s interval)')
     return true
   }, [trackOnce])
 
@@ -167,7 +152,6 @@ export function useGPSTracking(taskId?: string | null) {
     }
     setIsTracking(false)
     setCurrentLocation(null)
-    console.log('GPS tracking durduruldu')
   }, [])
 
   /**

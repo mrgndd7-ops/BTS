@@ -369,7 +369,6 @@ export function LiveTrackingMap({
 
           // Eğer user_id yoksa (device mapping yok), skip et
           if (!newLocation.user_id) {
-            console.log('⚠️ GPS data without user_id, skipping:', newLocation.device_id)
             return
           }
 
@@ -386,7 +385,6 @@ export function LiveTrackingMap({
             .single()
 
           if (!profile) {
-            console.log('⚠️ Profile not found for user_id:', newLocation.user_id)
             return
           }
 

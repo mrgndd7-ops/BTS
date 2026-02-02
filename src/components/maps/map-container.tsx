@@ -91,7 +91,7 @@ export function MapContainer({
 
     // On style.load event - harita tamamen hazır olduğunda
     map.current.on('style.load', () => {
-      console.log('Map style loaded')
+      // Map ready
     })
 
     // On load event - harita yüklendiğinde
@@ -104,7 +104,7 @@ export function MapContainer({
 
     // Error handling
     map.current.on('error', (e) => {
-      console.error('Map error:', e)
+      // Silently handle map errors
     })
 
     // Cleanup

@@ -128,7 +128,6 @@ export default function AdminDashboardPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
         (payload) => {
-          console.log('📊 Dashboard task update:', payload)
           loadDashboardData()
         }
       )
@@ -305,7 +304,9 @@ export default function AdminDashboardPage() {
                   className="flex-1" 
                   onClick={() => {
                     setSelectedPersonnel(null)
-                    window.location.href = `/admin/personnel/${selectedPersonnel.id}`
+                    if (typeof window !== 'undefined') {
+                      window.location.href = `/admin/personnel/${selectedPersonnel.id}`
+                    }
                   }}
                 >
                   <MapPinIcon className="h-4 w-4 mr-2" />

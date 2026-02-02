@@ -178,7 +178,7 @@ export function useAuth() {
       try {
         localStorage.removeItem('auth-storage')
       } catch (e) {
-        console.error('localStorage cleanup error:', e)
+        // Silently fail
       }
     }
   }

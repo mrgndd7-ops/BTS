@@ -14,7 +14,6 @@ let isInitialized = false
 export function initializeRadar(): boolean {
   // Server-side rendering check
   if (typeof window === 'undefined') {
-    console.warn('Radar.io sadece browser ortaminda calisir')
     return false
   }
 
@@ -27,7 +26,6 @@ export function initializeRadar(): boolean {
   const publishableKey = process.env.NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY
 
   if (!publishableKey) {
-    console.error('NEXT_PUBLIC_RADAR_PUBLISHABLE_KEY environment variable bulunamadi!')
     return false
   }
 
@@ -35,10 +33,8 @@ export function initializeRadar(): boolean {
     // Radar.io SDK'yi baslat
     Radar.initialize(publishableKey)
     isInitialized = true
-    console.log('Radar.io SDK basariyla initialize edildi')
     return true
   } catch (error) {
-    console.error('Radar.io SDK initialization hatasi:', error)
     return false
   }
 }

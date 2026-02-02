@@ -22,7 +22,7 @@ export function TrackingMap() {
 
     // Harita yüklendiğinde
     map.current.on('load', () => {
-      console.log('✅ Harita hazır')
+      // Map ready
     })
 
     // Cleanup

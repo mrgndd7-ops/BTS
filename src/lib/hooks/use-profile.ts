@@ -108,7 +108,7 @@ export function useProfile() {
         setProfile(data as never)
       }
     } catch (error) {
-      console.error('Profile refresh error:', error)
+      // Silently fail
     }
   }
 

@@ -67,17 +67,13 @@ export default function CompleteProfilePage() {
           .order('name')
 
         if (error) {
-          console.error('Belediye yukleme hatasi:', error)
           setMunicipalities([])
         } else if (data) {
-          console.log(`${selectedCity} icin ${data.length} belediye yuklendi`)
           setMunicipalities(data)
         } else {
-          console.log(`${selectedCity} icin belediye bulunamadi`)
           setMunicipalities([])
         }
       } catch (err) {
-        console.error('Beklenmeyen hata:', err)
         setMunicipalities([])
       } finally {
         setLoadingMunicipalities(false)

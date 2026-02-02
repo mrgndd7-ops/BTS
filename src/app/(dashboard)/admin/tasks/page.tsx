@@ -47,14 +47,12 @@ export default function TasksPage() {
       const { data: tasksData, error: tasksError } = await query
 
       if (tasksError) {
-        console.error('Görevler yüklenirken hata:', tasksError)
         setRecentTasks([])
         setLoading(false)
         return
       }
 
       if (!tasksData || tasksData.length === 0) {
-        console.log('Hiç görev yok')
         setRecentTasks([])
         setLoading(false)
         return
@@ -80,10 +78,8 @@ export default function TasksPage() {
         })
       )
 
-      console.log('Görevler başarıyla yüklendi:', tasksWithProfiles)
       setRecentTasks(tasksWithProfiles as Task[])
     } catch (err) {
-      console.error('Beklenmeyen hata:', err)
       setRecentTasks([])
     } finally {
       setLoading(false)

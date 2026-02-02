@@ -175,7 +175,6 @@ export function RouteCreationForm({ isOpen, onClose, onRouteCreated }: RouteCrea
         onClose()
       }, 2000)
     } catch (err) {
-      console.error('Route creation error:', err)
       setError(err instanceof Error ? err.message : 'Rota oluşturulamadı')
     } finally {
       setIsSubmitting(false)

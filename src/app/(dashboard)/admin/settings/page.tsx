@@ -68,10 +68,12 @@ export default function SettingsPage() {
     setSuccess(null)
 
     try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://bts-chi.vercel.app'
+      
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         user?.email || '',
         {
-          redirectTo: `${window.location.origin}/reset-password`
+          redirectTo: `${origin}/reset-password`
         }
       )
 

@@ -83,19 +83,15 @@ export function TaskList() {
 
   // Görevi başlat ve GPS tracking'i otomatik başlat
   const handleStartTask = async (taskId: string) => {
-    console.log('Gorev baslatma basladi, Task ID:', taskId)
     setStartingTask(taskId)
 
     try {
       // 1. GPS Tracking'i başlat
-      console.log('GPS tracking baslatiliyor...')
       const trackingStarted = await startTracking()
       
       if (!trackingStarted) {
         throw new Error('GPS tracking baslatılamadi. Lutfen konum iznini kontrol edin.')
       }
-
-      console.log('GPS tracking baslatildi, gorev durumu guncelleniyor...')
       
       // 2. Görev durumunu güncelle
       const { data, error } = await supabase
@@ -108,16 +104,11 @@ export function TaskList() {
         .select()
         .single()
       
-      console.log('Gorev guncelleme sonucu:', { data, error })
-      
       if (error) throw error
 
       // 3. Aktif görev olarak kaydet
       setActiveTaskId(taskId)
-      
-      console.log('Gorev basariyla baslatildi! GPS tracking aktif.')
     } catch (err: any) {
-      console.error('Gorev baslatma hatasi:', err)
       alert(err.message || 'Gorev baslatilamadi. Lutfen tekrar deneyin.')
       
       // Hata durumunda GPS tracking'i durdur
@@ -135,11 +126,8 @@ export function TaskList() {
     if (!confirmed) return
 
     try {
-      console.log('Gorev tamamlaniyor, Task ID:', taskId)
-      
       // 1. GPS Tracking'i durdur
       if (isTracking) {
-        console.log('GPS tracking durduruluyor...')
         stopTracking()
       }
 
@@ -155,7 +143,6 @@ export function TaskList() {
       if (error) throw error
 
       // 3. GPS Trace oluştur
-      console.log('GPS trace olusturuluyor...')
       const { data: gpsPoints, error: gpsError } = await supabase
         .from('gps_locations')
         .select('latitude, longitude, recorded_at, speed, accuracy')
@@ -177,7 +164,7 @@ export function TaskList() {
         }
 
         // Create GPS trace
-        const { error: traceError } = await supabase
+        await supabase
           .from('gps_traces')
           .insert({
             task_id: taskId,
@@ -185,23 +172,12 @@ export function TaskList() {
             miles: (totalDistance / 1609.34).toFixed(2), // Convert to miles
             vehicle: 'Personel', // Default value
           })
-
-        if (traceError) {
-          console.error('GPS trace kaydetme hatasi:', traceError)
-        } else {
-          console.log(`GPS trace olusturuldu: ${gpsPoints.length} nokta, ${(totalDistance / 1000).toFixed(2)} km`)
-        }
-      } else {
-        console.warn('GPS trace icin veri bulunamadi')
       }
 
       // 4. Aktif görev ID'sini temizle
       setActiveTaskId(null)
       
-      console.log('Gorev basariyla tamamlandi! GPS tracking durduruldu.')
-      
     } catch (err) {
-      console.error('Gorev tamamlama hatasi:', err)
       alert('Gorev tamamlanamadi')
     }
   }

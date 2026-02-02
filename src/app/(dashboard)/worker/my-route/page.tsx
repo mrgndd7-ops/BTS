@@ -93,7 +93,7 @@ export default function MyRoutePage() {
           }
         })
       } catch (error) {
-        console.error('Rota çizim hatası:', error)
+        // Silently handle route drawing errors
       }
     })
   }, [map, tasks])
