@@ -15,7 +15,7 @@ export interface LocationData {
   altitude?: number | null
 }
 
-export function useGPSTracking() {
+export function useGPSTracking(taskId?: string | null) {
   const supabase = createClient()
   const { user } = useAuth()
   
@@ -25,6 +25,12 @@ export function useGPSTracking() {
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt')
   
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const currentTaskIdRef = useRef<string | null>(taskId || null)
+
+  // Update task ID ref when it changes
+  useEffect(() => {
+    currentTaskIdRef.current = taskId || null
+  }, [taskId])
 
   /**
    * Konum verisini Supabase'e kaydet
@@ -44,6 +50,7 @@ export function useGPSTracking() {
         .insert({
           device_id: deviceId,
           user_id: user.id,
+          task_id: currentTaskIdRef.current, // Task ID eklendi
           latitude: location.latitude,
           longitude: location.longitude,
           accuracy: location.accuracy,
@@ -56,7 +63,7 @@ export function useGPSTracking() {
       if (insertError) {
         console.error('GPS veri kaydetme hatasi:', insertError)
       } else {
-        console.log('GPS verisi Supabase kaydedildi')
+        console.log('GPS verisi Supabase kaydedildi', currentTaskIdRef.current ? `(Task: ${currentTaskIdRef.current})` : '')
       }
     } catch (err) {
       console.error('GPS veri kaydetme exception:', err)
