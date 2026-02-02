@@ -22,10 +22,6 @@ export const metadata: Metadata = {
     initialScale: 1,
     maximumScale: 1,
     userScalable: false
-  },
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-icon.png'
   }
 }
 

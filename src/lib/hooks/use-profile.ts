@@ -116,19 +116,9 @@ export function useProfile() {
   // Profil tamamlanma kontrolü - sadece kritik fieldlar
   const isProfileComplete = !profile ? false : !!(
     profile.full_name &&
-    profile.role &&
-    profile.municipality_id
-    // Belediye seçimi zorunlu - tenant isolation için
+    profile.role
+    // municipality_id opsiyonel - sonradan ayarlanabilir
   )
-  
-  // Debug log
-  if (profile && !isProfileComplete) {
-    console.log('❌ Profil tamamlanmamış:', {
-      full_name: !!profile.full_name,
-      role: !!profile.role,
-      municipality_id: !!profile.municipality_id
-    })
-  }
 
   return {
     profile,
