@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 // Auth gerektirmeyen public route'lar
-const PUBLIC_ROUTES = ['/login', '/register']
+const PUBLIC_ROUTES = ['/login', '/register', '/api/gps']
 
 // Role bazlı route'lar
 const ADMIN_ROUTES = ['/admin']
@@ -43,5 +43,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: []  // Middleware'i geçici olarak devre dışı bırak
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api/gps (GPS tracking endpoint - public)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api/gps|_next/static|_next/image|favicon.ico).*)',
+  ]
 }
