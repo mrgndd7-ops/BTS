@@ -3,15 +3,12 @@
 -- Tüm Türkiye'deki tüm belediyelerin personellerini görebilir
 -- =====================================================
 
--- 1. Auth user oluştur (Supabase Dashboard'dan)
--- Email: demo@bts-sunum.com
--- Password: BTS2026Demo!
--- Veya istediğin email/password
+-- 1. ✅ Auth user ZATEN MEVCUT
+-- Email: (Mevcut kullanıcının email'i)
+-- Password: 12345
+-- User ID: 6ead77d3-3fd3-4f81-9945-5ccca5f95dc1
 
--- 2. User ID'yi al (Supabase Dashboard → Authentication → Users)
--- Örnek: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-
--- 3. Profile oluştur (USER_ID'yi değiştir!)
+-- 2. ✅ Profile oluştur (READY TO RUN!)
 INSERT INTO public.profiles (
   id,
   email,
@@ -24,7 +21,7 @@ INSERT INTO public.profiles (
   created_at,
   updated_at
 ) VALUES (
-  'USER_ID_BURAYA_YAZ', -- Supabase'den aldığın user ID
+  '6ead77d3-3fd3-4f81-9945-5ccca5f95dc1', -- ✅ Senin User ID
   'demo@bts-sunum.com',
   'Demo Super Admin',
   'super_admin', -- 🌟 SUPER ADMIN ROLE
@@ -34,31 +31,37 @@ INSERT INTO public.profiles (
   'active',
   NOW(),
   NOW()
-);
+)
+ON CONFLICT (id) 
+DO UPDATE SET
+  role = 'super_admin',
+  municipality_id = NULL,
+  city = 'Türkiye',
+  district = 'Genel',
+  updated_at = NOW();
 
 -- =====================================================
 -- KULLANIM ADIMLARI:
 -- =====================================================
--- 1. Supabase Dashboard → Authentication → Add User
---    - Email: demo@bts-sunum.com
---    - Password: BTS2026Demo!
---    - Auto Confirm User: ✅ (email confirmation atlansın)
+-- 1. ✅ User zaten mevcut!
+--    - User ID: 6ead77d3-3fd3-4f81-9945-5ccca5f95dc1
+--    - Password: 12345
 --
--- 2. User oluşturulduktan sonra ID'sini kopyala
+-- 2. Supabase Dashboard → SQL Editor → New Query
+--    - Yukarıdaki INSERT query'yi KOPYALA
+--    - RUN yap (tek tık!)
 --
--- 3. Supabase Dashboard → SQL Editor → New Query
---    - Yukarıdaki INSERT query'yi yapıştır
---    - 'USER_ID_BURAYA_YAZ' kısmını kopyaladığın ID ile değiştir
---    - Run query
+-- 3. Login ol:
+--    - Email: (Senin mevcut email)
+--    - Password: 12345
 --
--- 4. Login ol:
---    - Email: demo@bts-sunum.com
---    - Password: BTS2026Demo!
---
--- 5. Admin panel:
+-- 4. Admin panel:
 --    ✅ Personel: TÜM Türkiye'deki personeller
 --    ✅ Harita: TÜM Türkiye'deki canlı takip
 --    ✅ Görevler: TÜM belediyelerin görevleri
+--
+-- NOT: Eğer profile zaten varsa, CONFLICT durumunda
+--      role 'super_admin' olarak UPDATE edilir!
 -- =====================================================
 
 -- ÖNEMLİ NOTLAR:
@@ -68,6 +71,7 @@ INSERT INTO public.profiles (
 -- - Admin role = 'admin' (belediye yöneticisi)
 -- - Super Admin role = 'super_admin' (Türkiye geneli)
 
--- DEMO SONRASI SİLMEK İÇİN:
--- DELETE FROM public.profiles WHERE email = 'demo@bts-sunum.com';
--- Supabase Dashboard → Authentication → Users → Delete user
+-- DEMO SONRASI ESKİ ROLE'E DÖNDÜRMEk İÇİN:
+-- UPDATE public.profiles 
+-- SET role = 'admin', municipality_id = 'ESKİ_MUNICIPALITY_ID' 
+-- WHERE id = '6ead77d3-3fd3-4f81-9945-5ccca5f95dc1';
