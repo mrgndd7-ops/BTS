@@ -6,6 +6,7 @@ import { StatsCard } from '@/components/dashboard/stats-card'
 import { ClipboardList, CheckCircle, Clock, Award, MapPin, Navigation } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
 import Link from 'next/link'
@@ -113,7 +114,7 @@ export default function WorkerDashboardPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, supabase])
+  }, [user])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
