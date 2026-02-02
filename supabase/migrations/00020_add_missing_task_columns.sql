@@ -17,14 +17,9 @@ ALTER TABLE tasks
 ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium' 
 CHECK (priority IN ('low', 'medium', 'high'));
 
--- Add assigned_to column (will replace assigned_personnel)
+-- Add assigned_to column
 ALTER TABLE tasks
 ADD COLUMN IF NOT EXISTS assigned_to UUID REFERENCES profiles(id) ON DELETE SET NULL;
-
--- Copy data from assigned_personnel to assigned_to (if exists)
-UPDATE tasks 
-SET assigned_to = assigned_personnel 
-WHERE assigned_personnel IS NOT NULL AND assigned_to IS NULL;
 
 -- Create index for assigned_to
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
@@ -41,7 +36,7 @@ CHECK (status IN ('assigned', 'in_progress', 'completed', 'cancelled', 'beklemed
 COMMENT ON COLUMN tasks.title IS 'Task title/name';
 COMMENT ON COLUMN tasks.description IS 'Task description/details';
 COMMENT ON COLUMN tasks.priority IS 'Task priority level (low, medium, high)';
-COMMENT ON COLUMN tasks.assigned_to IS 'User ID of assigned personnel (replaces assigned_personnel)';
+COMMENT ON COLUMN tasks.assigned_to IS 'User ID of assigned personnel';
 
 COMMIT;
 
@@ -53,5 +48,5 @@ SELECT
   column_default
 FROM information_schema.columns 
 WHERE table_name = 'tasks' 
-AND column_name IN ('title', 'description', 'priority', 'assigned_to', 'assigned_personnel')
+AND column_name IN ('title', 'description', 'priority', 'assigned_to')
 ORDER BY column_name;
