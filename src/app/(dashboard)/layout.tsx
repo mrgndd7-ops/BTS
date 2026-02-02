@@ -19,10 +19,8 @@ export default function DashboardLayout({
   useEffect(() => {
     // Sadece ilk yüklemede kontrol et, her render'da değil
     if (!isLoading && !isAuthenticated) {
-      console.log('❌ Not authenticated, redirecting to login')
       router.replace('/login')
     } else if (!isLoading && isAuthenticated && !isProfileComplete) {
-      console.log('⚠️ Profile incomplete, redirecting to complete-profile')
       router.replace('/complete-profile')
     }
   }, [isAuthenticated, isLoading, isProfileComplete, router])
