@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils/cn'
 import { useUIStore } from '@/stores/ui-store'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/client'
 
 interface NavItem {
   title: string
@@ -48,34 +49,14 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { sidebarOpen, setSidebarOpen } = useUIStore()
-  const { profile, logout } = useAuth()
+  const { profile } = useAuth()
 
   const navItems = profile?.role === 'personnel' ? workerNavItems : adminNavItems
 
   const handleLogout = async () => {
-    console.log('🚪 LOGOUT BUTTON CLICKED!')
-    try {
-      console.log('🚪 Çıkış yapılıyor...')
-      
-      // 1. Logout (clears storage + cookies)
-      await logout()
-      
-      console.log('✅ Logout başarılı, yönlendiriliyor...')
-      
-      // 2. FORCE hard reload to clear ALL memory
-      if (typeof window !== 'undefined') {
-        console.log('🔄 Redirecting to /login...')
-        window.location.href = '/login'
-      }
-    } catch (error) {
-      console.error('❌ Logout error:', error)
-      
-      // Force redirect even on error
-      if (typeof window !== 'undefined') {
-        console.log('⚠️ Error but redirecting anyway...')
-        window.location.href = '/login'
-      }
-    }
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = '/login'
   }
 
   return (
