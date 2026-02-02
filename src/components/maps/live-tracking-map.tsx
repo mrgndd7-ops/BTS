@@ -510,7 +510,7 @@ export function LiveTrackingMap({
             return updated
           })
 
-          // Update marker
+          // 🔥 CRITICAL: Call marker update functions directly (they're in closure scope)
           updatePersonnelMarker(personnelLocation)
           
           // Update trail
@@ -528,7 +528,8 @@ export function LiveTrackingMap({
       console.log('🧹 Cleaning up GPS tracking subscription')
       supabase.removeChannel(channel)
     }
-  }, []) // 🔥 EMPTY DEPENDENCY ARRAY - Subscribe once!
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]) // Only depend on isLoaded - functions are stable via useCallback
 
   return (
     <div className={cn('relative', className)}>
