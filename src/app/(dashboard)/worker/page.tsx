@@ -114,7 +114,7 @@ export default function WorkerDashboardPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user])
+  }, [user]) // FIXED: Removed supabase from dependencies (mobile crash fix)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
