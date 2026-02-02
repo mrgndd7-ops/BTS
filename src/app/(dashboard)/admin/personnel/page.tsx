@@ -63,24 +63,36 @@ export default function PersonnelPage() {
         ? profilesData 
         : profilesData.filter(p => p.status === filter)
 
-      const personnelWithLocations = await Promise.all(
-        filtered.map(async (person) => {
-          const { data: latestLocation } = await supabase
-            .from('gps_locations')
-            .select('latitude, longitude, recorded_at')
-            .eq('user_id', person.id)
-            .order('recorded_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
+      // OPTIMIZED: Batch GPS query instead of N+1
+      const personnelIds = filtered.map(p => p.id)
+      
+      if (personnelIds.length > 0) {
+        // Get latest location for each personnel in a single query
+        const { data: allLocations } = await supabase
+          .from('gps_locations')
+          .select('user_id, latitude, longitude, recorded_at')
+          .in('user_id', personnelIds)
+          .order('recorded_at', { ascending: false })
 
-          return {
-            ...person,
-            latest_location: latestLocation
+        // Group by user_id and take the latest
+        const latestByUser = new Map<string, any>()
+        allLocations?.forEach(loc => {
+          if (!latestByUser.has(loc.user_id)) {
+            latestByUser.set(loc.user_id, loc)
           }
         })
-      )
 
-      setPersonnel(personnelWithLocations)
+        // Merge locations with personnel data
+        const personnelWithLocations = filtered.map(person => ({
+          ...person,
+          latest_location: latestByUser.get(person.id) || null
+        }))
+
+        setPersonnel(personnelWithLocations)
+      } else {
+        setPersonnel([])
+      }
+
       setLoading(false)
     }
 

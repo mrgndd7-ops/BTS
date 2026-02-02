@@ -32,10 +32,15 @@ export default function TasksPage() {
 
   const loadRecentTasks = async () => {
     try {
-      // Build query with municipality filter
+      // OPTIMIZED: Use JOIN to get tasks with profiles in a single query
       let query = supabase
         .from('tasks')
-        .select('*')
+        .select(`
+          *,
+          profiles:assigned_to (
+            full_name
+          )
+        `)
         .order('created_at', { ascending: false })
         .limit(10)
       
@@ -58,27 +63,7 @@ export default function TasksPage() {
         return
       }
 
-      // Sonra her görev için profile bilgisini çek
-      const tasksWithProfiles = await Promise.all(
-        tasksData.map(async (task) => {
-          if (!task.assigned_to) {
-            return { ...task, profiles: null }
-          }
-
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', task.assigned_to)
-            .single()
-
-          return {
-            ...task,
-            profiles: profileData
-          }
-        })
-      )
-
-      setRecentTasks(tasksWithProfiles as Task[])
+      setRecentTasks(tasksData as Task[])
     } catch (err) {
       setRecentTasks([])
     } finally {
