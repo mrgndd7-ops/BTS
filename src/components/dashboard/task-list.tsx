@@ -3,241 +3,62 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, CheckCircle2, Clock, Play, Info, MapPin, Navigation } from 'lucide-react'
+import { Clock } from 'lucide-react'
 
 interface Task {
   id: string
   title: string
   description?: string
-  status: 'assigned' | 'in_progress' | 'completed' | 'cancelled'
-  scheduled_start?: string
-  started_at?: string
-  completed_at?: string
+  status: string
   created_at: string
 }
 
 export function TaskList() {
-  const supabase = createClient()
   const { user } = useAuth()
-  
-  // STATE DECLARATIONs FIRST
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [startingTask, setStartingTask] = useState<string | null>(null)
-  
-  // HOOKS AFTER ALL STATE
-  const { isTracking, startTracking, stopTracking, currentLocation } = useGPSTracking(activeTaskId)
 
-  // Görevleri yükle
   useEffect(() => {
-    if (!user) return
-
     const loadTasks = async () => {
-      setLoading(true)
-      const { data } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('assigned_to', user.id)
-        .in('status', ['assigned', 'in_progress'])
-        .order('created_at', { ascending: false })
-
-      if (data) {
-        setTasks(data)
+      console.log('📋 Görevler yükleniyor...')
+      
+      if (!user) {
+        console.log('❌ User yok')
+        setLoading(false)
+        return
       }
-      setLoading(false)
+
+      try {
+        const supabase = createClient()
+        
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('assigned_to', user.id)
+          .in('status', ['assigned', 'in_progress'])
+          .order('created_at', { ascending: false })
+
+        console.log('📊 Görevler:', { count: data?.length, error })
+
+        if (error) {
+          console.error('❌ Query error:', error)
+          throw error
+        }
+
+        setTasks(data || [])
+      } catch (err) {
+        console.error('❌ Load error:', err)
+        setTasks([])
+      } finally {
+        console.log('✅ Loading complete')
+        setLoading(false)
+      }
     }
 
     loadTasks()
-
-    // Real-time görev güncellemeleri
-    const channel = supabase
-      .channel('task-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `assigned_to=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('📋 Task realtime update:', payload.eventType, payload)
-          
-          if (payload.eventType === 'INSERT') {
-            setTasks((prev) => [payload.new as Task, ...prev])
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedTask = payload.new as Task
-            
-            // Eğer task completed oldu ise listeden çıkar
-            if (updatedTask.status === 'completed' || updatedTask.status === 'cancelled') {
-              console.log('✅ Task completed/cancelled, listeden kaldırılıyor:', updatedTask.id)
-              setTasks((prev) => prev.filter((task) => task.id !== updatedTask.id))
-            } else {
-              // Güncelle
-              setTasks((prev) =>
-                prev.map((task) =>
-                  task.id === updatedTask.id ? updatedTask : task
-                )
-              )
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setTasks((prev) => prev.filter((task) => task.id !== (payload.old as Task).id))
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user]) // FIXED: Removed supabase from dependencies (mobile crash fix)
-
-  // Görevi başlat ve GPS tracking'i otomatik başlat
-  const handleStartTask = async (taskId: string) => {
-    setStartingTask(taskId)
-
-    try {
-      console.log('🚀 Görev başlatılıyor:', taskId)
-      
-      // 1. CRITICAL: GPS Tracking'i ÖNCELİKLE başlat
-      const trackingStarted = await startTracking()
-      
-      if (!trackingStarted) {
-        console.error('❌ GPS tracking başlatılamadı')
-        throw new Error('GPS tracking başlatılamadı. Lütfen:\n\n1. Tarayıcıda konum iznini verin\n2. Cihazınızın GPS ayarını açın\n3. Tekrar deneyin')
-      }
-      
-      console.log('✅ GPS tracking başlatıldı')
-      
-      // 2. GPS başarılı ise ANCAK SONRA görev durumunu güncelle
-      const { data, error } = await supabase
-        .from('tasks')
-        .update({ 
-          status: 'in_progress',
-          started_at: new Date().toISOString() 
-        })
-        .eq('id', taskId)
-        .select()
-        .single()
-      
-      if (error) {
-        // Görev güncelleme başarısız, GPS'i durdur
-        console.error('❌ Task update hatası:', error)
-        stopTracking()
-        throw new Error('Görev güncellenemedi: ' + error.message)
-      }
-
-      console.log('✅ Görev durumu güncellendi:', data)
-
-      // 3. Aktif görev olarak kaydet
-      setActiveTaskId(taskId)
-      
-      // 4. CRITICAL: Manually update local state to trigger re-render
-      setTasks((prev) =>
-        prev.map((task) =>
-          task.id === taskId ? { ...task, status: 'in_progress', started_at: new Date().toISOString() } : task
-        )
-      )
-      
-      console.log('✅ Görev başlatıldı, buton "Görevi Bitir" olarak değişmeli')
-    } catch (err: any) {
-      console.error('❌ Görev başlatma hatası:', err)
-      
-      // CRITICAL: Hata durumunda GPS'i durdur
-      if (isTracking) {
-        console.log('🛑 GPS durduruluyoır (hata nedeniyle)')
-        stopTracking()
-      }
-      
-      // User-friendly error message
-      alert(err.message || 'Görev başlatılamadı. Lütfen tekrar deneyin.')
-      
-      // CRITICAL: Loading state'i resetle
-      setStartingTask(null)
-    } finally {
-      setStartingTask(null)
-    }
-  }
-
-  // Görevi tamamla ve GPS tracking'i durdur
-  const handleCompleteTask = async (taskId: string) => {
-    const confirmed = confirm('Bu gorevi tamamladiniz mi? GPS tracking durdurul acak.')
-    if (!confirmed) return
-
-    try {
-      // 1. GPS Tracking'i durdur
-      if (isTracking) {
-        stopTracking()
-      }
-
-      // 2. Görev durumunu güncelle
-      const { error } = await supabase
-        .from('tasks')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString() 
-        })
-        .eq('id', taskId)
-
-      if (error) throw error
-
-      // 3. GPS Trace oluştur
-      const { data: gpsPoints, error: gpsError } = await supabase
-        .from('gps_locations')
-        .select('latitude, longitude, recorded_at, speed, accuracy')
-        .eq('task_id', taskId)
-        .order('recorded_at', { ascending: true })
-
-      if (gpsPoints && gpsPoints.length > 0) {
-        // Calculate total distance (rough estimate)
-        let totalDistance = 0
-        for (let i = 1; i < gpsPoints.length; i++) {
-          const prev = gpsPoints[i - 1]
-          const curr = gpsPoints[i]
-          // Simple Euclidean distance (not accurate, but good enough for trace)
-          const distance = Math.sqrt(
-            Math.pow(curr.latitude - prev.latitude, 2) + 
-            Math.pow(curr.longitude - prev.longitude, 2)
-          ) * 111000 // Approximate meters
-          totalDistance += distance
-        }
-
-        // Create GPS trace
-        await supabase
-          .from('gps_traces')
-          .insert({
-            task_id: taskId,
-            points: gpsPoints, // Store all points as JSONB
-            miles: (totalDistance / 1609.34).toFixed(2), // Convert to miles
-            vehicle: 'Personel', // Default value
-          })
-      }
-
-      // 4. Aktif görev ID'sini temizle
-      setActiveTaskId(null)
-      
-    } catch (err) {
-      alert('Gorev tamamlanamadi')
-    }
-  }
-
-  const getStatusBadge = (status: Task['status']) => {
-    switch (status) {
-      case 'assigned':
-        return <Badge variant="default">Atandı</Badge>
-      case 'in_progress':
-        return <Badge variant="info">Devam Ediyor</Badge>
-      case 'completed':
-        return <Badge variant="success">Tamamlandı</Badge>
-      case 'cancelled':
-        return <Badge variant="error">İptal Edildi</Badge>
-    }
-  }
+  }, [user])
 
   if (loading) {
     return (
@@ -249,10 +70,10 @@ export function TaskList() {
 
   if (tasks.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <AlertCircle className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-          <p className="text-slate-400">Henüz atanmış görev yok</p>
+      <Card className="bg-slate-800/40">
+        <CardContent className="p-12 text-center">
+          <Clock className="h-12 w-12 mx-auto text-slate-500 mb-4" />
+          <p className="text-slate-400">Size henüz görev atanmamış</p>
         </CardContent>
       </Card>
     )
@@ -260,117 +81,23 @@ export function TaskList() {
 
   return (
     <div className="space-y-4">
-      {/* GPS Tracking Durumu */}
-      <Card className={`border ${isTracking ? 'border-green-500/20 bg-green-500/5' : 'border-blue-500/20 bg-blue-500/5'}`}>
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            {isTracking ? (
-              <Navigation className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5 animate-pulse" />
-            ) : (
-              <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            )}
-            <div className="flex-1">
-              <p className={`text-sm font-medium ${isTracking ? 'text-green-400' : 'text-blue-400'}`}>
-                {isTracking ? 'GPS Tracking Aktif' : 'GPS Tracking Hazir'}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                {isTracking ? (
-                  <>
-                    Konumunuz her 10 saniyede bir kaydediliyor.
-                    {currentLocation && (
-                      <span className="ml-2 text-green-400">
-                        Hassasiyet: ~{currentLocation.accuracy.toFixed(0)}m
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  'Gorev baslattiginizda GPS tracking otomatik olarak baslayacak.'
-                )}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {tasks.map((task) => (
-        <Card key={task.id}>
-          <CardHeader>
-            <div className="flex items-start justify-between">
+        <Card key={task.id} className="bg-slate-800/40 border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-2">
               <div className="flex-1">
-                <CardTitle className="text-lg">{task.title}</CardTitle>
+                <h3 className="font-semibold text-white">{task.title}</h3>
                 {task.description && (
                   <p className="text-sm text-slate-400 mt-1">{task.description}</p>
                 )}
               </div>
-              {getStatusBadge(task.status)}
+              <Badge variant={task.status === 'in_progress' ? 'default' : 'secondary'}>
+                {task.status === 'in_progress' ? 'Devam Ediyor' : 'Bekliyor'}
+              </Badge>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4 text-sm text-slate-400">
-              {task.scheduled_start && (
-                <div className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  <span>
-                    {new Date(task.scheduled_start).toLocaleString('tr-TR', {
-                      day: '2-digit',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-              )}
-              {task.started_at && (
-                <div className="flex items-center gap-1">
-                  <Play className="h-4 w-4" />
-                  <span>
-                    Başladı: {new Date(task.started_at).toLocaleTimeString('tr-TR')}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              {task.status === 'assigned' && (
-                <Button
-                  onClick={() => handleStartTask(task.id)}
-                  className="flex-1"
-                  isLoading={startingTask === task.id}
-                  disabled={!!startingTask}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Görevi Başlat
-                </Button>
-              )}
-              {task.status === 'in_progress' && (
-                <Button
-                  onClick={() => handleCompleteTask(task.id)}
-                  className="flex-1"
-                  variant="default"
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Görevi Bitir
-                </Button>
-              )}
-            </div>
-            
-            {/* DEBUG: Show task status */}
             <p className="text-xs text-slate-500">
-              Status: {task.status} | ID: {task.id.slice(0, 8)}
+              {new Date(task.created_at).toLocaleString('tr-TR')}
             </p>
-
-            {task.status === 'assigned' && (
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                Gorev baslatildiginda GPS tracking otomatik baslar
-              </p>
-            )}
-            {task.status === 'in_progress' && activeTaskId === task.id && isTracking && (
-              <p className="text-xs text-green-400 flex items-center gap-1">
-                <Navigation className="h-3 w-3 animate-pulse" />
-                GPS tracking aktif - Konumunuz kaydediliyor
-              </p>
-            )}
           </CardContent>
         </Card>
       ))}
