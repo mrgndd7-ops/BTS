@@ -141,9 +141,19 @@ export function useGPSTracking(taskId?: string | null) {
 
     console.log('🚀 GPS Tracking başlatılıyor...')
 
+    // CRITICAL: Permission kontrolü
+    const hasPermission = await checkPermission()
+    if (!hasPermission) {
+      setError('Konum izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.')
+      console.error('❌ GPS Permission denied')
+      return false
+    }
+
     // İlk konumu hemen al
     const firstLocation = await trackOnce()
     if (!firstLocation) {
+      console.error('❌ İlk GPS konumu alınamadı')
+      setError('GPS konumu alınamadı. Lütfen cihazınızın GPS ayarlarını kontrol edin.')
       return false
     }
 
@@ -160,7 +170,7 @@ export function useGPSTracking(taskId?: string | null) {
     }, 5000) // 5 saniye
 
     return true
-  }, [trackOnce])
+  }, [trackOnce, checkPermission])
 
   /**
    * GPS tracking'i durdur

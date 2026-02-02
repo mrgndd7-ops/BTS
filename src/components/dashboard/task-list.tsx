@@ -100,16 +100,17 @@ export function TaskList() {
     try {
       console.log('🚀 Görev başlatılıyor:', taskId)
       
-      // 1. GPS Tracking'i başlat
+      // 1. CRITICAL: GPS Tracking'i ÖNCELİKLE başlat
       const trackingStarted = await startTracking()
       
       if (!trackingStarted) {
-        throw new Error('GPS tracking baslatılamadi. Lutfen konum iznini kontrol edin.')
+        console.error('❌ GPS tracking başlatılamadı')
+        throw new Error('GPS tracking başlatılamadı. Lütfen:\n\n1. Tarayıcıda konum iznini verin\n2. Cihazınızın GPS ayarını açın\n3. Tekrar deneyin')
       }
       
       console.log('✅ GPS tracking başlatıldı')
       
-      // 2. Görev durumunu güncelle
+      // 2. GPS başarılı ise ANCAK SONRA görev durumunu güncelle
       const { data, error } = await supabase
         .from('tasks')
         .update({ 
@@ -120,7 +121,12 @@ export function TaskList() {
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        // Görev güncelleme başarısız, GPS'i durdur
+        console.error('❌ Task update hatası:', error)
+        stopTracking()
+        throw new Error('Görev güncellenemedi: ' + error.message)
+      }
 
       console.log('✅ Görev durumu güncellendi:', data)
 
@@ -134,15 +140,21 @@ export function TaskList() {
         )
       )
       
-      console.log('✅ Görev başlatıldı, buton "Tamamla" olarak değişmeli')
+      console.log('✅ Görev başlatıldı, buton "Görevi Bitir" olarak değişmeli')
     } catch (err: any) {
       console.error('❌ Görev başlatma hatası:', err)
-      alert(err.message || 'Gorev baslatilamadi. Lutfen tekrar deneyin.')
       
-      // Hata durumunda GPS tracking'i durdur
+      // CRITICAL: Hata durumunda GPS'i durdur
       if (isTracking) {
+        console.log('🛑 GPS durduruluyoır (hata nedeniyle)')
         stopTracking()
       }
+      
+      // User-friendly error message
+      alert(err.message || 'Görev başlatılamadı. Lütfen tekrar deneyin.')
+      
+      // CRITICAL: Loading state'i resetle
+      setStartingTask(null)
     } finally {
       setStartingTask(null)
     }
