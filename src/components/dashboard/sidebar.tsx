@@ -53,18 +53,19 @@ export function Sidebar() {
   const navItems = profile?.role === 'personnel' ? workerNavItems : adminNavItems
 
   const handleLogout = async () => {
-    console.log('🚪 Logout butonu tıklandı!')
     try {
-      console.log('🚪 Logout fonksiyonu çağrılıyor...')
       await logout()
-      console.log('✅ Logout başarılı, yönlendiriliyor...')
       
       // Hard reload ile login'e git (cache'i temizlemek için)
-      window.location.href = '/login'
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     } catch (error) {
-      console.error('❌ Logout error:', error)
+      console.error('Logout error:', error)
       // Hata olsa bile logout yap
-      window.location.href = '/login'
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     }
   }
 
