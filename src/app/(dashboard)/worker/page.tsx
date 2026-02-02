@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import { Header } from '@/components/dashboard/header'
 import { StatsCard } from '@/components/dashboard/stats-card'
-import { ClipboardList, CheckCircle, Clock, Award, Smartphone, MapPin, Download, Settings } from 'lucide-react'
+import { ClipboardList, CheckCircle, Clock, Award, Smartphone, MapPin, Download, Settings, Navigation } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
 import Link from 'next/link'
 
 interface WorkerStats {
@@ -29,6 +30,14 @@ interface TodayTask {
 export default function WorkerDashboardPage() {
   const supabase = createClient()
   const { user } = useAuth()
+  const { 
+    isTracking, 
+    currentLocation, 
+    error: gpsError, 
+    startTracking, 
+    stopTracking 
+  } = useGPSTracking()
+  
   const [stats, setStats] = useState<WorkerStats>({
     pending: 0,
     in_progress: 0,
@@ -146,6 +155,52 @@ export default function WorkerDashboardPage() {
         description="Hoş geldiniz! Günlük görevlerinizi buradan takip edebilirsiniz."
       />
 
+      {/* GPS Tracking Status */}
+      <Card className="border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-purple-500/5">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-full ${isTracking ? 'bg-green-500/10' : 'bg-slate-700'}`}>
+                <Navigation className={`h-5 w-5 ${isTracking ? 'text-green-500' : 'text-slate-400'}`} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">GPS Konum Takibi</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {isTracking ? (
+                    <>
+                      Aktif - Konumunuz her 10 saniyede güncelleniyor
+                      {currentLocation && (
+                        <span className="ml-2 text-blue-400">
+                          ({currentLocation.accuracy.toFixed(0)}m hassasiyet)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    'Pasif - GPS tracking başlatılmadı'
+                  )}
+                </p>
+                {gpsError && (
+                  <p className="text-xs text-red-400 mt-1">⚠️ {gpsError}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant={isTracking ? 'default' : 'secondary'} className={isTracking ? 'bg-green-500 hover:bg-green-600' : ''}>
+                {isTracking ? 'Aktif' : 'Pasif'}
+              </Badge>
+              <Button
+                onClick={isTracking ? stopTracking : startTracking}
+                variant={isTracking ? 'outline' : 'default'}
+                size="sm"
+                className={isTracking ? 'border-red-500 text-red-500 hover:bg-red-500/10' : 'bg-blue-500 hover:bg-blue-600'}
+              >
+                {isTracking ? 'Durdur' : 'Başlat'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
@@ -174,7 +229,7 @@ export default function WorkerDashboardPage() {
         />
       </div>
 
-      {/* Traccar GPS Setup Instructions */}
+      {/* GPS Setup Instructions */}
       <Card className="border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-blue-600/5">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -183,7 +238,7 @@ export default function WorkerDashboardPage() {
             </div>
             <div>
               <CardTitle className="text-xl">GPS Konum Takibi</CardTitle>
-              <CardDescription>Traccar Client ile konumunuzu paylaşın</CardDescription>
+              <CardDescription>Mobil cihazınız üzerinden konumunuzu paylaşın</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -193,8 +248,8 @@ export default function WorkerDashboardPage() {
             <div className="flex items-center gap-3">
               <Smartphone className="h-5 w-5 text-slate-400" />
               <div>
-                <p className="text-sm font-medium text-white">Traccar Client Durumu</p>
-                <p className="text-xs text-slate-400">Mobil uygulama üzerinden GPS gönderimi</p>
+                <p className="text-sm font-medium text-white">GPS Tracking Durumu</p>
+                <p className="text-xs text-slate-400">Mobil cihaz üzerinden konum gönderimi</p>
               </div>
             </div>
             <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30">Aktif</Badge>
@@ -207,27 +262,12 @@ export default function WorkerDashboardPage() {
                 1
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-white mb-1">Traccar Client'ı İndirin</h4>
-                <p className="text-sm text-slate-400 mb-3">Telefonunuza uygun uygulamayı yükleyin</p>
-                <div className="flex flex-wrap gap-2">
-                  <a 
-                    href="https://play.google.com/store/apps/details?id=org.traccar.client" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-sm text-white transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    Android (Google Play)
-                  </a>
-                  <a 
-                    href="https://apps.apple.com/app/traccar-client/id843156974" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-sm text-white transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    iOS (App Store)
-                  </a>
+                <h4 className="text-sm font-semibold text-white mb-1">GPS Uygulamasını Yükleyin</h4>
+                <p className="text-sm text-slate-400 mb-3">Yöneticiniz tarafından sağlanan GPS tracking uygulamasını telefonunuza yükleyin (Android/iOS)</p>
+                <div className="p-3 bg-slate-900 border border-slate-700 rounded-lg">
+                  <p className="text-xs text-slate-400">
+                    <span className="text-blue-400 font-medium">Not:</span> GPS uygulama kurulum detayları için yöneticinizle iletişime geçin.
+                  </p>
                 </div>
               </div>
             </div>
@@ -237,27 +277,16 @@ export default function WorkerDashboardPage() {
                 2
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-white mb-1">Sunucu Ayarlarını Yapın</h4>
-                <p className="text-sm text-slate-400 mb-3">Traccar Client'ta Settings menüsüne girin ve aşağıdaki ayarları girin:</p>
+                <h4 className="text-sm font-semibold text-white mb-1">Uygulamayı Yapılandırın</h4>
+                <p className="text-sm text-slate-400 mb-3">GPS uygulamasında Settings menüsüne girin ve sunucu bilgilerini ayarlayın:</p>
                 <div className="space-y-2 bg-slate-900 rounded-lg p-4 border border-slate-700">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col gap-1">
                     <span className="text-xs text-slate-400">Server URL:</span>
-                    <code className="text-xs text-blue-400 bg-slate-800 px-2 py-1 rounded">
+                    <code className="text-xs text-blue-400 bg-slate-800 px-2 py-1 rounded break-all">
                       {typeof window !== 'undefined' ? window.location.origin : 'https://yourdomain.com'}/api/gps?id={user?.id || 'USER_ID'}
                     </code>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Frequency:</span>
-                    <code className="text-xs text-green-400">60 seconds</code>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Distance:</span>
-                    <code className="text-xs text-green-400">10 meters</code>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Accuracy:</span>
-                    <code className="text-xs text-green-400">High</code>
-                  </div>
+                  <p className="text-xs text-slate-400 mt-2">Önerilen ayarlar: Frequency 60s, Distance 10m, Accuracy High</p>
                 </div>
               </div>
             </div>

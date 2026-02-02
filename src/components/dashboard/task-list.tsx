@@ -78,14 +78,14 @@ export function TaskList() {
     }
   }, [user, supabase])
 
-  // Görevi başlat (Traccar GPS zaten çalışıyor olmalı)
+  // Görevi başlat (GPS tracking uygulaması zaten çalışıyor olmalı)
   const handleStartTask = async (taskId: string) => {
     console.log('🚀 Görev başlatma başladı, Task ID:', taskId)
     setStartingTask(taskId)
 
     try {
-      // Traccar Client'ın çalıştığını varsayıyoruz
-      // GPS izni kontrolü veya başlatma yok - Traccar bağımsız çalışıyor
+      // GPS uygulamasının çalıştığını varsayıyoruz
+      // GPS izni kontrolü mobil uygulama tarafından yapılıyor
       
       console.log('💾 Görev durumu güncelleniyor...')
       const { data, error } = await supabase
@@ -103,7 +103,7 @@ export function TaskList() {
       if (error) throw error
 
       console.log('✅ Görev başarıyla başlatıldı!')
-      alert('Görev başlatıldı! GPS takibi Traccar Client ile yapılıyor.')
+      alert('Görev başlatıldı! GPS takibi mobil cihazınız üzerinden yapılıyor.')
     } catch (err) {
       console.error('❌ Görev başlatma hatası:', err)
       alert('Görev başlatılamadı. Lütfen tekrar deneyin.')
@@ -173,15 +173,15 @@ export function TaskList() {
 
   return (
     <div className="space-y-4">
-      {/* Traccar GPS Uyarısı */}
+      {/* GPS Tracking Uyarısı */}
       <Card className="border-blue-500/20 bg-blue-500/5">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
             <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-blue-400 font-medium">GPS Takibi Traccar Client İle Yapılmaktadır</p>
+              <p className="text-sm text-blue-400 font-medium">GPS Takibi Mobil Cihazınız Üzerinden Yapılmaktadır</p>
               <p className="text-xs text-slate-400 mt-1">
-                Görevi başlatmadan önce Traccar Client uygulamasını telefonunuzda başlattığınızdan emin olun. 
+                Görevi başlatmadan önce GPS tracking uygulamasını telefonunuzda başlattığınızdan emin olun. 
                 Ana Sayfa'daki kurulum talimatlarını takip edin.
               </p>
             </div>
@@ -252,7 +252,7 @@ export function TaskList() {
 
             {task.status === 'assigned' && (
               <p className="text-xs text-slate-400">
-                ℹ️ Traccar Client'ı çalıştırdıktan sonra görevi başlatın
+                ℹ️ GPS uygulamasını çalıştırdıktan sonra görevi başlatın
               </p>
             )}
           </CardContent>

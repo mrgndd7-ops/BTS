@@ -1,62 +1,47 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { getGPSTrackingService, type LocationData } from '@/lib/services/gps-tracking'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { getRadar, initializeRadar } from '@/lib/radar/client'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './use-auth'
+
+export interface LocationData {
+  latitude: number
+  longitude: number
+  accuracy: number
+  timestamp: number
+  speed?: number | null
+  heading?: number | null
+  altitude?: number | null
+}
 
 export function useGPSTracking() {
   const supabase = createClient()
   const { user } = useAuth()
+  
   const [isTracking, setIsTracking] = useState(false)
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt')
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
-
-  const trackingService = getGPSTrackingService()
-
-  /**
-   * Online/offline durumunu dinle
-   */
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true)
-      setError(null)
-    }
-    
-    const handleOffline = () => {
-      setIsOnline(false)
-      setError('İnternet bağlantısı yok. Uçak modunu kapatın.')
-      if (isTracking) {
-        trackingService.stopTracking()
-        setIsTracking(false)
-        setCurrentLocation(null)
-      }
-    }
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [isTracking, trackingService])
+  
+  const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   /**
-   * Konum verisini Supabase'e gönder
+   * Konum verisini Supabase'e kaydet
    */
-  const sendLocationToServer = useCallback(async (location: LocationData) => {
-    if (!user?.id) return
+  const saveLocationToDatabase = useCallback(async (location: LocationData) => {
+    if (!user?.id) {
+      console.warn('User ID yok, konum kaydedilemedi')
+      return
+    }
 
     try {
-      // Device ID oluştur (user_id + timestamp bazlı)
-      const deviceId = `web-${user.id.slice(0, 8)}-${Date.now()}`
+      // Device ID oluştur (user_id bazlı)
+      const deviceId = `radar-web-${user.id.slice(0, 8)}`
       
       const { error: insertError } = await supabase
         .from('gps_locations')
-        .insert([{
+        .insert({
           device_id: deviceId,
           user_id: user.id,
           latitude: location.latitude,
@@ -64,18 +49,119 @@ export function useGPSTracking() {
           accuracy: location.accuracy,
           speed: location.speed,
           heading: location.heading,
+          altitude: location.altitude,
           recorded_at: new Date(location.timestamp).toISOString()
-        }] as any)
+        })
 
       if (insertError) {
-        console.error('GPS veri gönderme hatası:', insertError)
+        console.error('GPS veri kaydetme hatasi:', insertError)
       } else {
-        console.log('✅ GPS verisi başarıyla gönderildi')
+        console.log('GPS verisi Supabase kaydedildi')
       }
     } catch (err) {
-      console.error('GPS veri gönderme hatası:', err)
+      console.error('GPS veri kaydetme exception:', err)
     }
   }, [user?.id, supabase])
+
+  /**
+   * Radar.io ile tek seferlik konum al
+   */
+  const trackOnce = useCallback(async (): Promise<LocationData | null> => {
+    const Radar = getRadar()
+    if (!Radar) {
+      setError('Radar.io SDK yüklenemedi')
+      return null
+    }
+
+    try {
+      setError(null)
+      console.log('Radar.io ile konum aliniyor...')
+
+      const result = await Radar.trackOnce()
+      
+      if (result.location) {
+        const locationData: LocationData = {
+          latitude: result.location.latitude,
+          longitude: result.location.longitude,
+          accuracy: result.location.accuracy || 0,
+          timestamp: Date.now(),
+          speed: result.location.speed || null,
+          heading: result.location.course || null,
+          altitude: result.location.altitude || null
+        }
+
+        console.log('Konum alindi:', locationData)
+        setCurrentLocation(locationData)
+        setPermissionStatus('granted')
+
+        // Supabase'e kaydet
+        await saveLocationToDatabase(locationData)
+
+        return locationData
+      } else {
+        throw new Error('Konum verisi alınamadı')
+      }
+    } catch (err: any) {
+      console.error('Radar.io trackOnce hatasi:', err)
+      
+      let errorMessage = 'Konum alınamadı'
+      if (err.message?.includes('permission')) {
+        errorMessage = 'Konum izni reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.'
+        setPermissionStatus('denied')
+      } else if (err.message?.includes('timeout')) {
+        errorMessage = 'Konum tespiti zaman aşımına uğradı. Tekrar deneyin.'
+      }
+      
+      setError(errorMessage)
+      return null
+    }
+  }, [saveLocationToDatabase])
+
+  /**
+   * Periyodik GPS tracking başlat (her 10 saniyede bir)
+   */
+  const startTracking = useCallback(async (): Promise<boolean> => {
+    console.log('GPS tracking baslatiliyor...')
+
+    // Radar.io'yu initialize et
+    const initialized = initializeRadar()
+    if (!initialized) {
+      setError('Radar.io başlatılamadı. Lütfen sayfayı yenileyin.')
+      return false
+    }
+
+    // İlk konumu hemen al
+    const firstLocation = await trackOnce()
+    if (!firstLocation) {
+      return false
+    }
+
+    // Tracking başladı
+    setIsTracking(true)
+    setError(null)
+
+    // Her 10 saniyede bir konum al
+    trackingIntervalRef.current = setInterval(async () => {
+      console.log('Periyodik konum guncellemesi...')
+      await trackOnce()
+    }, 10000) // 10 saniye
+
+    console.log('GPS tracking basariyla baslatildi (10s interval)')
+    return true
+  }, [trackOnce])
+
+  /**
+   * GPS tracking'i durdur
+   */
+  const stopTracking = useCallback(() => {
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current)
+      trackingIntervalRef.current = null
+    }
+    setIsTracking(false)
+    setCurrentLocation(null)
+    console.log('GPS tracking durduruldu')
+  }, [])
 
   /**
    * Konum iznini kontrol et
@@ -95,125 +181,24 @@ export function useGPSTracking() {
   }, [])
 
   /**
-   * Tracking başlat
-   */
-  const startTracking = useCallback(async (): Promise<boolean> => {
-    console.log('🎯 startTracking çağrıldı')
-    console.log('📡 isOnline:', isOnline)
-    
-    // Önce internet kontrolü
-    if (!isOnline) {
-      setError('İnternet bağlantısı yok. Uçak modunu kapatın veya WiFi açın.')
-      console.log('❌ İnternet bağlantısı yok')
-      return false
-    }
-
-    try {
-      setError(null)
-      
-      console.log('🔐 İzin kontrolü yapılıyor...')
-      // İlk önce konum iznini kontrol et
-      const hasPermission = await checkPermission()
-      console.log('🔐 İzin sonucu:', hasPermission)
-      
-      if (!hasPermission) {
-        setError('Konum izni gerekli. Lütfen tarayıcı ayarlarından izin verin.')
-        console.log('❌ İzin reddedildi')
-        return false
-      }
-
-      console.log('📍 GPS tracking service başlatılıyor...')
-      await trackingService.startTracking(
-        (location) => {
-          console.log('📍 Konum güncellendi:', location)
-          setCurrentLocation(location)
-          setError(null)
-          // Her konum güncellemesinde server'a gönder
-          sendLocationToServer(location)
-        },
-        (err) => {
-          console.error('❌ GPS hatası:', err)
-          let errorMessage = 'GPS hatası'
-          
-          switch (err.code) {
-            case err.PERMISSION_DENIED:
-              errorMessage = 'Konum izni reddedildi. Tarayıcı ayarlarından izin verin.'
-              setPermissionStatus('denied')
-              break
-            case err.POSITION_UNAVAILABLE:
-              errorMessage = 'Konum bilgisi alınamıyor. GPS açık mı kontrol edin.'
-              break
-            case err.TIMEOUT:
-              errorMessage = 'Konum tespiti zaman aşımına uğradı. Tekrar deneyin.'
-              break
-            default:
-              errorMessage = err.message || 'Bilinmeyen GPS hatası'
-          }
-          
-          setError(errorMessage)
-          setIsTracking(false)
-        }
-      )
-
-      setIsTracking(true)
-      setPermissionStatus('granted')
-      console.log('✅ GPS tracking başlatıldı!')
-      return true
-    } catch (err) {
-      console.error('❌ Tracking başlatma exception:', err)
-      const errorMessage = err instanceof Error ? err.message : 'GPS başlatılamadı'
-      setError(errorMessage)
-      setPermissionStatus('denied')
-      setIsTracking(false)
-      return false
-    }
-  }, [trackingService, sendLocationToServer, isOnline, checkPermission])
-
-  /**
-   * Tracking durdur
-   */
-  const stopTracking = useCallback(() => {
-    trackingService.stopTracking()
-    setIsTracking(false)
-    setCurrentLocation(null)
-  }, [trackingService])
-
-  /**
-   * Tek seferlik konum al
-   */
-  const getCurrentPosition = useCallback(async () => {
-    try {
-      setError(null)
-      const location = await trackingService.getCurrentPosition()
-      setCurrentLocation(location)
-      return location
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Konum alınamadı'
-      setError(errorMessage)
-      throw new Error(errorMessage)
-    }
-  }, [trackingService])
-
-  /**
    * Component unmount'ta tracking'i durdur
    */
   useEffect(() => {
     return () => {
-      if (isTracking) {
-        trackingService.stopTracking()
+      if (trackingIntervalRef.current) {
+        clearInterval(trackingIntervalRef.current)
       }
     }
-  }, [isTracking, trackingService])
+  }, [])
 
   return {
     isTracking,
     currentLocation,
     error,
     permissionStatus,
-    isOnline,
     startTracking,
     stopTracking,
-    getCurrentPosition,
+    trackOnce,
     checkPermission
   }
 }

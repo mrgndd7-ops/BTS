@@ -17,7 +17,7 @@ git add .
 
 echo.
 echo Commit changes...
-git commit -m "Add Traccar GPS tracking: GET endpoint, logging, CORS, device management UI"
+git commit -m "Remove Traccar integration, prepare for Radar.io GPS tracking"
 
 echo.
 echo Push to remote...

@@ -58,7 +58,7 @@ export function useAuth() {
         if (session?.user) {
           setUser(session.user)
           
-          // Profile'ı da güncelle
+          // Profile'i da guncelle
           const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
@@ -121,7 +121,7 @@ export function useAuth() {
     })
 
     if (authError) throw authError
-    if (!authData.user) throw new Error('Kullanıcı oluşturulamadı')
+    if (!authData.user) throw new Error('Kullanici olusturulamadi')
 
     // 2. Get district from municipality
     const { data: municipalityData } = await supabase
@@ -151,24 +151,24 @@ export function useAuth() {
 
     if (profileError) {
       console.error('Profile creation error:', profileError)
-      throw new Error('Profil oluşturulamadı: ' + profileError.message)
+      throw new Error('Profil olusturulamadi: ' + profileError.message)
     }
 
     return authData
   }
 
   const logout = async () => {
-    console.log('🔐 Supabase signOut başlatılıyor...')
+    console.log('Supabase signOut baslatiliyor...')
     const { error } = await supabase.auth.signOut()
     
     if (error) {
-      console.error('❌ SignOut hatası:', error)
+      console.error('SignOut hatasi:', error)
       throw error
     }
 
-    console.log('✅ Supabase signOut başarılı')
+    console.log('Supabase signOut basarili')
     reset()
-    // Router push'u sidebar'da yapıyoruz, burada yapmaya gerek yok
+    // Router push'u sidebar'da yapiyoruz, burada yapmaya gerek yok
   }
 
   return {

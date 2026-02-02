@@ -66,7 +66,7 @@ https://bts-lemon.vercel.app/api/gps?id=test&lat=41&lon=28&timestamp=17381520000
 - Variables kayıtlı mı kontrol et
 - Hard refresh yap (Ctrl+Shift+R)
 
-## 🎯 Traccar Client Ayarları
+## 🎯 GPS Device Ayarları
 
 Başarılı olduktan sonra:
 ```

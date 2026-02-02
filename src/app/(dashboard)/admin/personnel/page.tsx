@@ -379,7 +379,7 @@ export default function PersonnelPage() {
                     </Button>
                   )}
                   <p className="text-xs text-slate-500 mt-2">
-                    Traccar Client'ta bu ID'yi kullanın
+                    GPS cihazında bu ID'yi kullanın
                   </p>
                 </div>
 

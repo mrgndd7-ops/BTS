@@ -6,9 +6,9 @@ import type { Database } from '@/types/database'
 /**
  * GPS Tracking API Endpoint
  * 
- * Supports both GET and POST for Traccar Client compatibility
- * GET: Traccar Client default method
- * POST: Alternative method
+ * Supports both GET and POST for GPS device compatibility
+ * GET: Query string parameters
+ * POST: Form data or JSON body
  * 
  * Format: ?id=device_id&lat=41.0082&lon=28.9784&timestamp=1706529000000&speed=45.5&bearing=180&altitude=100&accuracy=10&batt=85.5
  */
@@ -67,7 +67,7 @@ export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders })
 }
 
-interface TraccarClientParams {
+interface GpsDeviceParams {
   id: string // device unique ID (IMEI, phone number, etc)
   lat: string
   lon: string
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
     
-    // Try to get data from query params OR form data (Traccar compatibility)
+    // Try to get data from query params OR form data
     let deviceId = searchParams.get('id')?.trim()
     let lat = searchParams.get('lat')?.trim()
     let lon = searchParams.get('lon')?.trim()
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     let accuracy = searchParams.get('accuracy')?.trim()
     let battery = searchParams.get('battery')?.trim() || searchParams.get('batt')?.trim()
 
-    // If not in query params, try form data (Traccar Client sends POST form data)
+    // If not in query params, try form data or JSON body
     if (!deviceId || !lat || !lon) {
       try {
         const formData = await request.formData()
@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/gps
  * 
- * Traccar Client sends GPS data via GET request
+ * GPS devices can send location data via GET request
  * Format: ?id=device_id&lat=41.0082&lon=28.9784&timestamp=1706529000000&speed=45.5&bearing=180&altitude=100&accuracy=10&batt=85.5
  */
 export async function GET(request: NextRequest) {
@@ -303,13 +303,13 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    // Check if this is a Traccar Client request (has required GPS params)
+    // Check if this is a GPS device location update (has required GPS params)
     const deviceId = searchParams.get('id')?.trim()
     const lat = searchParams.get('lat')?.trim()
     const lon = searchParams.get('lon')?.trim()
     const timestamp = searchParams.get('timestamp')?.trim()
 
-    // If GPS params present, treat as Traccar Client location update
+    // If GPS params present, treat as GPS device location update
     if (deviceId && lat && lon && timestamp) {
       devLog('📍 Processing GPS location from device:', deviceId)
 

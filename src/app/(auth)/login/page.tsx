@@ -31,10 +31,10 @@ function LoginForm() {
     try {
       setError(null)
       
-      console.log('🔐 Login attempt:', { email: data.email })
+      console.log('Login attempt:', { email: data.email })
       
       const result = await login(data)
-      console.log('✅ Login successful:', result)
+      console.log('Login successful:', result)
       
       // Get user's profile to check role
       const { data: profileData, error: profileError } = await supabase
@@ -43,25 +43,25 @@ function LoginForm() {
         .eq('id', result.user?.id)
         .single<{ role: string }>()
       
-      console.log('👤 Profile data:', { profileData, profileError })
+      console.log('Profile data:', { profileData, profileError })
       
       // Redirect based on role
       const redirect = searchParams.get('redirect')
       
-      // Eğer redirect '/' veya boşsa, role'e göre yönlendir
+      // Eger redirect '/' veya bossa, role'e gore yonlendir
       if (redirect && redirect !== '/') {
-        console.log('🔀 Redirecting to:', redirect)
+        console.log('Redirecting to:', redirect)
         router.push(redirect)
       } else {
         const targetUrl = profileData?.role === 'personnel' ? '/worker' : '/admin'
-        console.log('🔀 Redirecting to:', targetUrl, '(role:', profileData?.role, ')')
+        console.log('Redirecting to:', targetUrl, '(role:', profileData?.role, ')')
         router.push(targetUrl)
       }
       
       router.refresh()
     } catch (err) {
-      console.error('❌ Login error:', err)
-      setError(err instanceof Error ? err.message : 'Giriş başarısız oldu')
+      console.error('Login error:', err)
+      setError(err instanceof Error ? err.message : 'Giris basarisiz oldu')
     }
   }
 
@@ -71,7 +71,7 @@ function LoginForm() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-center text-3xl">BTS</CardTitle>
           <CardDescription className="text-center">
-            Belediye Temizlik Sistemi&apos;ne Hoş Geldiniz
+            Belediye Temizlik Sistemine Hos Geldiniz
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -91,7 +91,7 @@ function LoginForm() {
             />
 
             <Input
-              label="Şifre"
+              label="Sifre"
               type="password"
               placeholder="••••••••"
               error={errors.password?.message}
@@ -109,9 +109,9 @@ function LoginForm() {
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
           <p className="text-center text-sm text-slate-400">
-            Hesabınız yok mu?{' '}
+            Hesabiniz yok mu?{' '}
             <Link href="/register" className="text-blue-500 hover:underline">
-              Kayıt Ol
+              Kayit Ol
             </Link>
           </p>
         </CardFooter>

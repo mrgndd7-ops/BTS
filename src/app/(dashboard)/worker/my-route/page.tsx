@@ -103,15 +103,15 @@ export default function MyRoutePage() {
       <div className="p-6 border-b border-slate-800 space-y-4">
         <Header title="Rotam" description="Bugünkü rota ve konum bilgileriniz" />
         
-        {/* Traccar Info Card */}
+        {/* GPS Info Card */}
         <Card className="border-blue-500/20 bg-blue-500/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Info className="h-5 w-5 text-blue-500" />
               <div>
-                <p className="text-sm text-blue-400 font-medium">GPS Takibi Traccar Client ile yapılmaktadır</p>
+                <p className="text-sm text-blue-400 font-medium">GPS Takibi mobil cihazınız üzerinden yapılmaktadır</p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Ana Sayfa'daki talimatları takip ederek Traccar Client'ı kurun ve başlatın
+                  Ana Sayfa'daki talimatları takip ederek GPS uygulamasını kurun ve başlatın
                 </p>
               </div>
             </div>

@@ -423,13 +423,13 @@ export default function DevicesPage() {
             <div className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold flex-shrink-0">1</div>
               <div>
-                <strong className="text-white">Traccar Client Kurulumu:</strong> Personelin telefonuna Traccar Client uygulamasını yükleyin (Android/iOS).
+                <strong className="text-white">GPS Uygulama Kurulumu:</strong> Personelin telefonuna GPS tracking uygulamasını yükleyin (Radar.io SDK veya benzeri).
               </div>
             </div>
             <div className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold flex-shrink-0">2</div>
               <div>
-                <strong className="text-white">API Yapılandırması:</strong> Traccar Client&apos;ta Server URL&apos;i şu şekilde ayarlayın: <code className="px-2 py-1 bg-slate-900 rounded text-xs">https://yourdomain.com/api/gps?id=DEVICE_ID</code>
+                <strong className="text-white">API Yapılandırması:</strong> GPS uygulamasında Server URL&apos;i şu şekilde ayarlayın: <code className="px-2 py-1 bg-slate-900 rounded text-xs">https://yourdomain.com/api/gps?id=DEVICE_ID</code>
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -441,7 +441,7 @@ export default function DevicesPage() {
             <div className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold flex-shrink-0">4</div>
               <div>
-                <strong className="text-white">Eşleştirme:</strong> Traccar Client konum göndermeye başladığında, cihaz bu sayfada görünecektir. Yukarıdaki listeden ilgili personeli seçip kaydedin.
+                <strong className="text-white">Eşleştirme:</strong> GPS cihazı konum göndermeye başladığında, cihaz bu sayfada görünecektir. Yukarıdaki listeden ilgili personeli seçip kaydedin.
               </div>
             </div>
             <div className="flex items-start gap-2">

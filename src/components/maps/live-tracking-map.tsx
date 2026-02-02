@@ -16,7 +16,6 @@ interface PersonnelLocation {
   heading: number | null
   battery_level: number | null
   recorded_at: string
-  source: string
   profiles: {
     id: string
     full_name: string
@@ -90,7 +89,6 @@ export function LiveTrackingMap({
       <div class="p-2 min-w-[200px]">
         <div class="flex items-center gap-2 mb-2">
           <div class="font-bold text-slate-900">${personnel.profiles.full_name}</div>
-          <span class="text-xs px-2 py-0.5 rounded-full ${personnel.source === 'traccar' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">${personnel.source}</span>
         </div>
         <div class="text-xs text-slate-600 space-y-1">
           <div class="flex items-center justify-between">
@@ -308,7 +306,6 @@ export function LiveTrackingMap({
           heading,
           battery_level,
           recorded_at,
-          source,
           profiles:user_id (
             id,
             full_name,
