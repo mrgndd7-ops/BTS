@@ -6,14 +6,21 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/database'
 
+let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
+
 export function createClient() {
-  return createBrowserClient<Database>(
+  // Singleton pattern - aynı client'ı tekrar kullan (mobil için kritik)
+  if (browserClient) {
+    return browserClient
+  }
+
+  browserClient = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name) {
-          // Browser ortamında cookie'yi al
+          // SSR safety check
           if (typeof document === 'undefined') return undefined
           
           const value = `; ${document.cookie}`
@@ -25,7 +32,7 @@ export function createClient() {
           return undefined
         },
         set(name, value, options) {
-          // Browser ortamında cookie'yi set et
+          // SSR safety check
           if (typeof document === 'undefined') return
           
           let cookie = `${name}=${value}`
@@ -37,7 +44,7 @@ export function createClient() {
             cookie += `; domain=${options.domain}`
           }
           if (options?.path) {
-            cookie += `; path=${options.path}`
+            cookie += `; path=${options.path || '/'}`
           }
           if (options?.sameSite) {
             cookie += `; samesite=${options.sameSite}`
@@ -49,15 +56,31 @@ export function createClient() {
           document.cookie = cookie
         },
         remove(name, options) {
-          // Browser ortamında cookie'yi sil
+          // SSR safety check
           if (typeof document === 'undefined') return
           
-          this.set(name, '', {
-            ...options,
-            maxAge: 0,
-          })
+          // Max-age=0 ile cookie'yi expire et
+          let cookie = `${name}=; max-age=0`
+          
+          if (options?.path) {
+            cookie += `; path=${options.path || '/'}`
+          }
+          if (options?.domain) {
+            cookie += `; domain=${options.domain}`
+          }
+          
+          document.cookie = cookie
         },
+      },
+      auth: {
+        // Mobil için storage options
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce', // PKCE flow for better security on mobile
       },
     }
   )
+
+  return browserClient
 }

@@ -68,17 +68,13 @@ export default function RegisterPage() {
           .order('name', { ascending: true })
         
         if (error) {
-          console.error('Belediye yükleme hatası:', error)
           setFilteredMunicipalities([])
         } else if (data) {
-          console.log(`${selectedCity} için ${data.length} belediye yüklendi:`, data)
           setFilteredMunicipalities(data)
         } else {
-          console.log(`${selectedCity} için belediye bulunamadı`)
           setFilteredMunicipalities([])
         }
       } catch (err) {
-        console.error('Beklenmeyen hata:', err)
         setFilteredMunicipalities([])
       } finally {
         setLoadingMunicipalities(false)

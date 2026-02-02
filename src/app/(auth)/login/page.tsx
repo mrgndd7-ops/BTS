@@ -31,10 +31,7 @@ function LoginForm() {
     try {
       setError(null)
       
-      console.log('Login attempt:', { email: data.email })
-      
       const result = await login(data)
-      console.log('Login successful:', result)
       
       // Get user's profile to check role
       const { data: profileData, error: profileError } = await supabase
@@ -43,25 +40,25 @@ function LoginForm() {
         .eq('id', result.user?.id)
         .single<{ role: string }>()
       
-      console.log('Profile data:', { profileData, profileError })
+      if (profileError) {
+        throw new Error('Profil bilgisi yüklenemedi')
+      }
       
       // Redirect based on role
       const redirect = searchParams.get('redirect')
       
       // Eger redirect '/' veya bossa, role'e gore yonlendir
       if (redirect && redirect !== '/') {
-        console.log('Redirecting to:', redirect)
         router.push(redirect)
       } else {
         const targetUrl = profileData?.role === 'personnel' ? '/worker' : '/admin'
-        console.log('Redirecting to:', targetUrl, '(role:', profileData?.role, ')')
         router.push(targetUrl)
       }
       
       router.refresh()
     } catch (err) {
       console.error('Login error:', err)
-      setError(err instanceof Error ? err.message : 'Giris basarisiz oldu')
+      setError(err instanceof Error ? err.message : 'Geçersiz kullanıcı adı veya şifre')
     }
   }
 

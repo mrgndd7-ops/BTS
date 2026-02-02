@@ -36,10 +36,14 @@ export function useAuth() {
           if (isMounted && profileData) {
             setProfile(profileData)
           }
+        } else if (isMounted) {
+          // Session yoksa state'i temizle
+          setIsLoading(false)
         }
       } catch (error) {
         if (isMounted) {
           console.error('Session check error:', error)
+          setIsLoading(false)
         }
       } finally {
         if (isMounted) {
@@ -79,7 +83,8 @@ export function useAuth() {
       isMounted = false
       subscription.unsubscribe()
     }
-  }, [supabase, setUser, setProfile, setIsLoading, reset])
+    // FIXED: Remove unstable dependencies (supabase is singleton now)
+  }, [setUser, setProfile, setIsLoading, reset])
 
   const login = async ({ email, password }: LoginInput) => {
     try {
