@@ -15,7 +15,24 @@ export function TrackingMap() {
     // Harita oluştur
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: {
+        version: 8,
+        sources: {
+          carto: {
+            type: 'raster',
+            tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '© CARTO © OpenStreetMap'
+          }
+        },
+        layers: [
+          {
+            id: 'carto-tiles',
+            type: 'raster',
+            source: 'carto'
+          }
+        ]
+      },
       center: [28.9784, 41.0082], // İstanbul
       zoom: 11
     })
