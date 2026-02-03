@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { LiveTrackingMap } from '@/components/maps/live-tracking-map'
 import { RouteCreationForm } from '@/components/forms/route-creation-form'
 import { createClient } from '@/lib/supabase/client'
-import { useProfile } from '@/lib/hooks/use-profile'
 import { cn } from '@/lib/utils/cn'
 import { Plus, MapPin, Users, Battery, Gauge, Clock, CheckCircle2 } from 'lucide-react'
 
@@ -32,7 +31,6 @@ interface PersonnelInfo {
 export default function RoutesPage() {
   const router = useRouter()
   const supabase = createClient()
-  const { profile } = useProfile()
   const [personnel, setPersonnel] = useState<PersonnelInfo[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -47,17 +45,12 @@ export default function RoutesPage() {
   }, [])
 
   const loadPersonnel = async () => {
-    // Get all personnel (workers) from same municipality
+    // Get all personnel across Turkey
     let query = supabase
       .from('profiles')
       .select('id, full_name, role, status')
       .in('role', ['personnel', 'worker', 'driver'])
-    
-    // Multi-tenant isolation
-    if (profile?.municipality_id) {
-      query = query.eq('municipality_id', profile.municipality_id)
-    }
-    
+
     const { data: profiles } = await query.order('full_name')
 
     if (!profiles) return
@@ -118,25 +111,15 @@ export default function RoutesPage() {
   const filteredPersonnel = personnel.filter(p => {
     if (filter === 'all') return true
     if (filter === 'active') {
-      if (!p.last_location) return false
-      const lastUpdate = new Date(p.last_location.recorded_at)
-      const minutesAgo = (Date.now() - lastUpdate.getTime()) / 60000
-      return minutesAgo < 10 // Active if updated in last 10 minutes
+      return !!p.active_task
     }
     if (filter === 'inactive') {
-      if (!p.last_location) return true
-      const lastUpdate = new Date(p.last_location.recorded_at)
-      const minutesAgo = (Date.now() - lastUpdate.getTime()) / 60000
-      return minutesAgo >= 10
+      return !p.active_task
     }
     return true
   })
 
-  const activeCount = personnel.filter(p => {
-    if (!p.last_location) return false
-    const minutesAgo = (Date.now() - new Date(p.last_location.recorded_at).getTime()) / 60000
-    return minutesAgo < 10
-  }).length
+  const activeCount = personnel.filter((p) => !!p.active_task).length
 
   const handleCompleteTask = async (person: PersonnelInfo) => {
     if (!person.active_task?.id) return
@@ -255,9 +238,7 @@ export default function RoutesPage() {
               </div>
             ) : (
               filteredPersonnel.map((person) => {
-                const isActive = person.last_location 
-                  ? (Date.now() - new Date(person.last_location.recorded_at).getTime()) / 60000 < 10
-                  : false
+                const isActive = !!person.active_task
 
                 return (
                   <Card 
@@ -393,7 +374,6 @@ export default function RoutesPage() {
             className="h-full w-full"
             center={[29.0, 41.0]}
             zoom={11}
-            municipalityId={profile?.municipality_id || undefined}
             showTrails={true}
             showOnlyActiveTasks={true}
             onPersonnelClick={(personnelId) => {

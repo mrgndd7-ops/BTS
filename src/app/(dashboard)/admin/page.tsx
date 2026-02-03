@@ -232,7 +232,6 @@ export default function AdminDashboardPage() {
             className="w-full h-[600px]" 
             center={[29.0, 41.0]}
             zoom={11}
-            municipalityId={profile?.municipality_id || undefined}
             showTrails={true}
             showOnlyActiveTasks={true}
             isSuperAdmin={profile?.role === 'super_admin'}
