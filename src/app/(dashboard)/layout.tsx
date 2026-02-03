@@ -3,33 +3,24 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/dashboard/sidebar'
-import { useAuth } from '@/lib/hooks/use-auth'
-import { useProfile } from '@/lib/hooks/use-profile'
 import { LoadingPage } from '@/components/ui/loading'
+import { AuthProvider, useAuthContext } from '@/providers/auth-provider'
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
-  const { isProfileComplete } = useProfile()
+  const { user, loading } = useAuthContext()
 
   useEffect(() => {
-    // Sadece ilk yüklemede kontrol et, her render'da değil
-    if (!isLoading && !isAuthenticated) {
+    if (!loading && !user) {
       router.replace('/login')
-    } else if (!isLoading && isAuthenticated && !isProfileComplete) {
-      router.replace('/complete-profile')
     }
-  }, [isAuthenticated, isLoading, isProfileComplete, router])
+  }, [loading, user, router])
 
-  if (isLoading) {
+  if (loading) {
     return <LoadingPage />
   }
 
-  if (!isAuthenticated || !isProfileComplete) {
+  if (!user) {
     return null
   }
 
@@ -42,3 +33,16 @@ export default function DashboardLayout({
     </div>
   )
 }
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <AuthProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </AuthProvider>
+  )
+}
+
