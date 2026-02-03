@@ -49,12 +49,6 @@ export function useGPSTracking(taskId?: string | null) {
       return
     }
 
-    // GPS Hassasiyet kontrolü: 5-10m altında olmalı
-    if (location.accuracy > 80) {
-      console.warn('📍 GPS Hassasiyet düşük, kaydetme atlanıyor:', location.accuracy)
-      return
-    }
-
     try {
       // Device ID oluştur (user_id bazlı)
       const deviceId = `radar-web-${user.id.slice(0, 8)}`
