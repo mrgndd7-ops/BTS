@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useGPSTracking } from '@/lib/hooks/use-gps-tracking'
@@ -23,6 +23,7 @@ export function TaskList() {
   const [loading, setLoading] = useState(true)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [processingTask, setProcessingTask] = useState<string | null>(null)
+  const autoStartTaskRef = useRef<string | null>(null)
   
   // 🔥 CRITICAL: Always call hooks unconditionally at the top level
   // Pass null initially, update via setActiveTaskId when task starts
@@ -83,6 +84,31 @@ export function TaskList() {
     loadTasks()
   }, [user])
 
+  useEffect(() => {
+    const inProgressTask = tasks.find((task) => task.status === 'in_progress')
+
+    if (!inProgressTask) {
+      autoStartTaskRef.current = null
+      return
+    }
+
+    if (activeTaskId !== inProgressTask.id) {
+      setActiveTaskId(inProgressTask.id)
+    }
+
+    if (isTracking) return
+    if (autoStartTaskRef.current === inProgressTask.id) return
+
+    autoStartTaskRef.current = inProgressTask.id
+
+    setTimeout(async () => {
+      const gpsStarted = await startTracking()
+      if (!gpsStarted) {
+        autoStartTaskRef.current = null
+      }
+    }, 100)
+  }, [tasks, activeTaskId, isTracking, startTracking])
+
   const handleStartTask = async (taskId: string) => {
     setProcessingTask(taskId)
     try {
@@ -119,6 +145,7 @@ export function TaskList() {
       // 3. SONRA GPS tracking başlat
       console.log('📍 GPS başlatılıyor...')
       setActiveTaskId(taskId) // Bu activeTaskId'yi useGPSTracking hook'una geçirir
+      autoStartTaskRef.current = taskId
       
       // Hook içindeki startTracking fonksiyonu çağrılacak
       setTimeout(async () => {
@@ -139,6 +166,7 @@ export function TaskList() {
       console.error('❌ Görev başlatma hatası:', err)
       alert(err.message || 'Görev başlatılamadı')
       setActiveTaskId(null)
+      autoStartTaskRef.current = null
       
       // Hata olursa task'ı geri al
       const supabase = createClient()
@@ -160,6 +188,7 @@ export function TaskList() {
       console.log('🛑 GPS durduruluyor...')
       stopTracking()
       setActiveTaskId(null)
+      autoStartTaskRef.current = null
       
       console.log('✅ GPS durduruldu')
       

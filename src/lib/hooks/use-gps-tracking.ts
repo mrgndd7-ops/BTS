@@ -50,7 +50,7 @@ export function useGPSTracking(taskId?: string | null) {
     }
 
     // GPS Hassasiyet kontrolü: 5-10m altında olmalı
-    if (location.accuracy > 15) {
+    if (location.accuracy > 80) {
       console.warn('📍 GPS Hassasiyet düşük, kaydetme atlanıyor:', location.accuracy)
       return
     }
