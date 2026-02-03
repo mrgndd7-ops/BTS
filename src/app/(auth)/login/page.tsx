@@ -54,8 +54,12 @@ function LoginForm() {
   const onSubmit = async (data: LoginInput) => {
     try {
       setError(null)
+      const normalizedEmail = data.email.trim().toLowerCase()
       
-      const result = await login(data)
+      const result = await login({
+        ...data,
+        email: normalizedEmail,
+      })
       
       // Get user's profile to check role
       const { data: profileData, error: profileError } = await supabase
@@ -86,7 +90,12 @@ function LoginForm() {
       router.refresh()
     } catch (err) {
       console.error('Login error:', err)
-      setError(err instanceof Error ? err.message : 'Geçersiz kullanıcı adı veya şifre')
+      const message = err instanceof Error ? err.message : ''
+      if (message.toLowerCase().includes('invalid login credentials')) {
+        setError('E-posta veya şifre hatalı. Mobilde otomatik boşluk/büyük harf olup olmadığını kontrol edin.')
+      } else {
+        setError(message || 'Geçersiz kullanıcı adı veya şifre')
+      }
     }
   }
 
@@ -111,6 +120,9 @@ function LoginForm() {
               label="E-posta"
               type="email"
               placeholder="ornek@belediye.gov.tr"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               error={errors.email?.message}
               {...register('email')}
             />

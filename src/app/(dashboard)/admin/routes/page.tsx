@@ -10,13 +10,18 @@ import { RouteCreationForm } from '@/components/forms/route-creation-form'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/hooks/use-profile'
 import { cn } from '@/lib/utils/cn'
-import { Plus, MapPin, Users, Battery, Gauge, Clock } from 'lucide-react'
+import { Plus, MapPin, Users, Battery, Gauge, Clock, CheckCircle2 } from 'lucide-react'
 
 interface PersonnelInfo {
   id: string
   full_name: string
   role: string
   status: string
+  active_task?: {
+    id: string
+    title: string
+    status: string
+  }
   last_location?: {
     latitude: number
     longitude: number
@@ -32,6 +37,8 @@ export default function RoutesPage() {
   const [showSidebar, setShowSidebar] = useState(true)
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false)
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
+  const [mapRefreshKey, setMapRefreshKey] = useState(0)
 
   // Load personnel with their latest locations
   useEffect(() => {
@@ -66,8 +73,18 @@ export default function RoutesPage() {
           .limit(1)
           .maybeSingle() // 🔧 FIX: Use maybeSingle() to prevent 406 errors
 
+        const { data: activeTask } = await supabase
+          .from('tasks')
+          .select('id, title, status')
+          .eq('assigned_to', profile.id)
+          .eq('status', 'in_progress')
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
         return {
           ...profile,
+          active_task: activeTask || undefined,
           last_location: location || undefined
         }
       })
@@ -120,6 +137,34 @@ export default function RoutesPage() {
     const minutesAgo = (Date.now() - new Date(p.last_location.recorded_at).getTime()) / 60000
     return minutesAgo < 10
   }).length
+
+  const handleCompleteTask = async (person: PersonnelInfo) => {
+    if (!person.active_task?.id) return
+
+    try {
+      setCompletingTaskId(person.active_task.id)
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', person.active_task.id)
+        .eq('status', 'in_progress')
+
+      if (error) {
+        throw error
+      }
+
+      await loadPersonnel()
+      setMapRefreshKey((prev) => prev + 1)
+    } catch (err) {
+      console.error('❌ Task completion error:', err)
+      alert('Görev tamamlanamadı. Lütfen tekrar deneyin.')
+    } finally {
+      setCompletingTaskId(null)
+    }
+  }
 
   return (
     <div className="flex h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -268,6 +313,23 @@ export default function RoutesPage() {
                               })}
                             </span>
                           </div>
+                          {person.active_task && (
+                            <div className="pt-2">
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                isLoading={completingTaskId === person.active_task.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleCompleteTask(person)
+                                }}
+                                className="w-full"
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Görevi Bitir
+                              </Button>
+                            </div>
+                          )}
                           
                         </div>
                       ) : (
@@ -327,11 +389,13 @@ export default function RoutesPage() {
         {/* Map */}
         <div className="flex-1 relative">
           <LiveTrackingMap 
+            key={mapRefreshKey}
             className="h-full w-full"
             center={[29.0, 41.0]}
             zoom={11}
             municipalityId={profile?.municipality_id || undefined}
             showTrails={true}
+            showOnlyActiveTasks={true}
             onPersonnelClick={(personnelId) => {
               router.push(`/admin/personnel/${personnelId}`)
             }}

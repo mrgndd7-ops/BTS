@@ -36,6 +36,7 @@ interface LiveTrackingMapProps {
   zoom?: number
   municipalityId?: string
   showTrails?: boolean
+  showOnlyActiveTasks?: boolean
   onPersonnelClick?: (personnelId: string) => void
   isSuperAdmin?: boolean // SUPER ADMIN: Show all municipalities
 }
@@ -46,6 +47,7 @@ export function LiveTrackingMap({
   zoom = 12,
   municipalityId,
   showTrails = true,
+  showOnlyActiveTasks = false,
   onPersonnelClick,
   isSuperAdmin = false
 }: LiveTrackingMapProps) {
@@ -447,6 +449,11 @@ export function LiveTrackingMap({
           return
         }
         
+        const isActiveTask = location.task_id && location.tasks?.status === 'in_progress'
+        if (showOnlyActiveTasks && !isActiveTask) {
+          return
+        }
+
         if (!latestLocations.has(location.user_id)) {
           latestLocations.set(location.user_id, location as PersonnelLocation)
         }
@@ -536,6 +543,15 @@ export function LiveTrackingMap({
             }
           }
 
+          if (showOnlyActiveTasks && taskData?.status !== 'in_progress') {
+            const existingMarker = markers.current.get(newLocation.user_id)
+            if (existingMarker) {
+              existingMarker.remove()
+              markers.current.delete(newLocation.user_id)
+            }
+            return
+          }
+
           const personnelLocation: PersonnelLocation = {
             ...newLocation,
             profiles: profile,
@@ -575,7 +591,7 @@ export function LiveTrackingMap({
       console.log('🧹 Cleaning up GPS tracking subscription')
       supabase.removeChannel(channel)
     }
-  }, [isLoaded, isSuperAdmin, municipalityId, showTrails, updatePersonnelMarker, updatePersonnelTrail])
+  }, [isLoaded, isSuperAdmin, municipalityId, showTrails, showOnlyActiveTasks, updatePersonnelMarker, updatePersonnelTrail])
 
   return (
     <div className={cn('relative', className)}>
