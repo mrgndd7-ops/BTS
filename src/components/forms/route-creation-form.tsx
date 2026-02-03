@@ -93,7 +93,7 @@ export function RouteCreationForm({ isOpen, onClose, onRouteCreated }: RouteCrea
         .from('profiles')
         .select('id, full_name, role')
         .eq('municipality_id', profile.municipality_id)
-        .in('role', ['worker', 'driver'])
+        .in('role', ['personnel', 'worker', 'driver'])
         .order('full_name')
 
       if (data) {
@@ -362,7 +362,7 @@ export function RouteCreationForm({ isOpen, onClose, onRouteCreated }: RouteCrea
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">{person.full_name}</p>
                     <p className="text-xs text-slate-400">
-                      {person.role === 'worker' ? 'Temizlik Personeli' : 'Sürücü'}
+                      {person.role === 'driver' ? 'Sürücü' : 'Temizlik Personeli'}
                     </p>
                   </div>
                   {selectedPersonnel.includes(person.id) && (

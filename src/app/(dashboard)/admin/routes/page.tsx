@@ -44,7 +44,7 @@ export default function RoutesPage() {
     let query = supabase
       .from('profiles')
       .select('id, full_name, role, status')
-      .eq('role', 'personnel')
+      .in('role', ['personnel', 'worker', 'driver'])
     
     // Multi-tenant isolation
     if (profile?.municipality_id) {
@@ -240,7 +240,7 @@ export default function RoutesPage() {
                               {person.full_name}
                             </h3>
                             <p className="text-xs text-slate-400 mt-0.5">
-                              {person.role === 'worker' ? 'Temizlik Personeli' : 'Araç Sürücüsü'}
+                              {person.role === 'driver' ? 'Araç Sürücüsü' : 'Temizlik Personeli'}
                             </p>
                           </div>
                         </div>

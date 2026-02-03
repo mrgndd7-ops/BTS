@@ -11,6 +11,7 @@ import { Users, MapPin, Phone, Mail } from 'lucide-react'
 interface Personnel {
   id: string
   full_name: string
+  role: string
   email: string | null
   phone: string | null
   department: string | null
@@ -39,8 +40,8 @@ export default function PersonnelPage() {
         // BASİT QUERY - TÜM PERSONELLER
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, email, phone, department, status, city, district')
-          .eq('role', 'personnel')
+          .select('id, full_name, role, email, phone, department, status, city, district')
+          .in('role', ['personnel', 'worker', 'driver'])
           .order('full_name')
 
         console.log('📊 Query sonucu:', { count: data?.length, error })

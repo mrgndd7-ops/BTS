@@ -29,6 +29,8 @@ interface Personnel {
   full_name: string
   department?: string
   city?: string
+  role?: string
+  status?: string
   municipality_id?: string
 }
 
@@ -64,12 +66,11 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
       }
 
       try {
-        // BASİT QUERY - TÜM AKTİF PERSONELLER
+        // Legacy verilerde role/status farkları olabildiği için esnek filtre
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, department, city')
-          .eq('role', 'personnel')
-          .eq('status', 'active')
+          .select('id, full_name, department, city, role, status')
+          .in('role', ['personnel', 'worker', 'driver'])
           .order('full_name')
 
         console.log('📊 Personnel loaded:', { count: data?.length, error })
@@ -227,6 +228,7 @@ export function TaskAssignmentForm({ onTaskCreated }: TaskAssignmentFormProps) {
                   {person.full_name}
                   {person.city && ` - ${person.city}`}
                   {person.department && ` (${person.department})`}
+                  {person.status && person.status !== 'active' && ' [Pasif]'}
                 </option>
               ))}
             </select>
