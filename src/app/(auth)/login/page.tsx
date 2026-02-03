@@ -19,10 +19,9 @@ function LoginForm() {
   const { login } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
-  // CRITICAL: Login sayfası mount olduğunda eski session'ı temizle
+  // Login page mount: clear old sessions/cookies that may break mobile auth flow
   useState(() => {
     if (typeof window !== 'undefined') {
-      // Clear ALL Supabase cookies and storage
       const cookies = document.cookie.split(';')
       cookies.forEach(cookie => {
         const name = cookie.split('=')[0].trim()
@@ -31,15 +30,12 @@ function LoginForm() {
           document.cookie = `${name}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT`
         }
       })
-      
-      // Clear localStorage
+
       Object.keys(localStorage).forEach(key => {
         if (key.includes('sb-') || key.includes('auth') || key.includes('supabase')) {
           localStorage.removeItem(key)
         }
       })
-      
-      console.log('🧹 Login page: Old session cleaned')
     }
   })
 
@@ -55,46 +51,65 @@ function LoginForm() {
     try {
       setError(null)
       const normalizedEmail = data.email.trim().toLowerCase()
-      
+
       const result = await login({
         ...data,
         email: normalizedEmail,
       })
-      
-      // Get user's profile to check role
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', result.user?.id)
-        .single<{ role: string }>()
-      
-      if (profileError) {
-        throw new Error('Profil bilgisi yüklenemedi')
+
+      const userId = result.user?.id
+      if (!userId) {
+        throw new Error('Giris basarili gorunuyor ama kullanici bilgisi alinamadi')
       }
-      
-      // Redirect based on role
+
+      // Retry profile fetch for mobile timing issues
+      let profileRole: string | null = null
+      let lastProfileError: string | null = null
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle<{ role: string }>()
+
+        if (profileData?.role) {
+          profileRole = profileData.role
+          break
+        }
+
+        lastProfileError = profileError?.message || 'Profil bilgisi henuz hazir degil'
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+
+      // Last fallback: role from auth metadata
+      if (!profileRole) {
+        const metadataRole = result.user?.user_metadata?.role
+        if (typeof metadataRole === 'string' && metadataRole.length > 0) {
+          profileRole = metadataRole
+        }
+      }
+
+      if (!profileRole) {
+        throw new Error(lastProfileError || 'Profil bilgisi yuklenemedi')
+      }
+
       const redirect = searchParams.get('redirect')
-      
-      console.log('🔐 Login başarılı, role:', profileData?.role)
-      
-      // Eger redirect '/' veya bossa, role'e gore yonlendir
       if (redirect && redirect !== '/') {
         router.push(redirect)
       } else {
-        // super_admin ve admin aynı panele gider
-        const targetUrl = profileData?.role === 'personnel' ? '/worker' : '/admin'
-        console.log('🎯 Yönlendirme:', targetUrl)
-        router.push(targetUrl)
+        const isWorkerRole = ['personnel', 'worker', 'driver'].includes(profileRole)
+        router.push(isWorkerRole ? '/worker' : '/admin')
       }
-      
+
       router.refresh()
     } catch (err) {
       console.error('Login error:', err)
       const message = err instanceof Error ? err.message : ''
       if (message.toLowerCase().includes('invalid login credentials')) {
-        setError('E-posta veya şifre hatalı. Mobilde otomatik boşluk/büyük harf olup olmadığını kontrol edin.')
+        setError('E-posta veya sifre hatali. Mobilde bosluk/buyuk harf kontrol edin.')
       } else {
-        setError(message || 'Geçersiz kullanıcı adı veya şifre')
+        setError(message || 'Gecersiz kullanici adi veya sifre')
       }
     }
   }
@@ -130,7 +145,7 @@ function LoginForm() {
             <Input
               label="Sifre"
               type="password"
-              placeholder="••••••••"
+              placeholder="********"
               error={errors.password?.message}
               {...register('password')}
             />
@@ -140,7 +155,7 @@ function LoginForm() {
               className="w-full"
               isLoading={isSubmitting}
             >
-              Giriş Yap
+              Giris Yap
             </Button>
           </form>
         </CardContent>
@@ -159,12 +174,15 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   )
 }
+

@@ -433,6 +433,39 @@ export function LiveTrackingMap({
         return
       }
 
+      // Fallback: Resolve active tasks by personnel to avoid dropping markers
+      // when gps_locations -> tasks relation is temporarily null.
+      const userIds = Array.from(
+        new Set(
+          data
+            .map((row: any) => row.user_id)
+            .filter((id: string | null) => !!id)
+        )
+      )
+
+      const activeTaskByUser = new Map<string, { id: string; status: string; title: string }>()
+      if (userIds.length > 0) {
+        const { data: activeTasks, error: activeTasksError } = await supabase
+          .from('tasks')
+          .select('id, assigned_to, status, title')
+          .in('assigned_to', userIds)
+          .eq('status', 'in_progress')
+
+        if (activeTasksError) {
+          console.warn('⚠️ Active task fallback query failed:', activeTasksError.message)
+        } else if (activeTasks) {
+          activeTasks.forEach((task: any) => {
+            if (!activeTaskByUser.has(task.assigned_to)) {
+              activeTaskByUser.set(task.assigned_to, {
+                id: task.id,
+                status: task.status,
+                title: task.title || 'Aktif Görev'
+              })
+            }
+          })
+        }
+      }
+
       const latestLocations = new Map<string, PersonnelLocation>()
       data.forEach((location: any) => {
         console.log('🔍 Processing location:', {
@@ -448,14 +481,21 @@ export function LiveTrackingMap({
           console.warn('⚠️ Skipping location - missing user_id or profile:', location)
           return
         }
-        
-        const isActiveTask = location.task_id && location.tasks?.status === 'in_progress'
+
+        const activeTask = activeTaskByUser.get(location.user_id)
+        const isActiveTask = !!activeTask
+
         if (showOnlyActiveTasks && !isActiveTask) {
           return
         }
 
         if (!latestLocations.has(location.user_id)) {
-          latestLocations.set(location.user_id, location as PersonnelLocation)
+          const normalizedLocation: PersonnelLocation = {
+            ...location,
+            task_id: activeTask?.id || location.task_id || null,
+            tasks: location.tasks || activeTask || null
+          }
+          latestLocations.set(location.user_id, normalizedLocation)
         }
       })
 
@@ -543,7 +583,22 @@ export function LiveTrackingMap({
             }
           }
 
-          if (showOnlyActiveTasks && taskData?.status !== 'in_progress') {
+          // Fallback: check user's active task directly
+          let activeTaskByUser: { id: string; status: string; title: string } | null = null
+          const { data: activeTask } = await supabase
+            .from('tasks')
+            .select('id, status, title')
+            .eq('assigned_to', newLocation.user_id)
+            .eq('status', 'in_progress')
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (activeTask) {
+            activeTaskByUser = activeTask
+          }
+
+          if (showOnlyActiveTasks && !activeTaskByUser) {
             const existingMarker = markers.current.get(newLocation.user_id)
             if (existingMarker) {
               existingMarker.remove()
@@ -552,10 +607,13 @@ export function LiveTrackingMap({
             return
           }
 
+          const resolvedTask = taskData || activeTaskByUser || null
+
           const personnelLocation: PersonnelLocation = {
             ...newLocation,
+            task_id: activeTaskByUser?.id || newLocation.task_id || null,
             profiles: profile,
-            tasks: taskData
+            tasks: resolvedTask
           }
 
           console.log('📍 Marker güncelleniyor:', {
