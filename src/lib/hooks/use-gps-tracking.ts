@@ -28,6 +28,7 @@ export function useGPSTracking(taskId?: string | null) {
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt')
   
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const watchIdRef = useRef<number | null>(null)
   const currentTaskIdRef = useRef<string | null>(taskId || null)
   
   // Detect client-side mounting
@@ -248,34 +249,68 @@ export function useGPSTracking(taskId?: string | null) {
       return false
     }
 
-    // 3. İlk konumu Radar.io ile al
-    console.log('📍 İlk konum Radar.io ile alınıyor...')
-    const firstLocation = await trackOnce()
-    if (!firstLocation) {
-      console.error('❌ İlk GPS konumu alınamadı')
-      setError('GPS konumu alınamadı. Lütfen cihazınızın GPS ayarlarını kontrol edin.')
+    // 3. Browser Geolocation watchPosition ile canlı takip başlat
+    if (!navigator.geolocation) {
+      setError('Bu cihazda Geolocation API desteklenmiyor.')
       return false
     }
+
+    // Önce eski watcher varsa temizle
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+      watchIdRef.current = null
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      async (position) => {
+        const locationData: LocationData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy || 0,
+          timestamp: position.timestamp || Date.now(),
+          speed: position.coords.speed ?? null,
+          heading: position.coords.heading ?? null,
+          altitude: position.coords.altitude ?? null
+        }
+
+        setCurrentLocation(locationData)
+        setPermissionStatus('granted')
+        await saveLocationToDatabase(locationData)
+      },
+      (geoError) => {
+        console.error('❌ watchPosition error:', geoError.code, geoError.message)
+        if (geoError.code === 1) {
+          setPermissionStatus('denied')
+          setError('Konum izni reddedildi. Lütfen tarayıcı ayarlarından izin verin.')
+        } else {
+          setError('Canlı konum alınamıyor. Lütfen GPS ayarlarını kontrol edin.')
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    )
 
     // 4. Tracking başladı
     setIsTracking(true)
     setError(null)
 
-    console.log('✅ GPS Tracking aktif - Her 5 saniyede güncelleme')
-
-    // 5. Her 5 saniyede bir konum al (daha sık update için)
-    trackingIntervalRef.current = setInterval(async () => {
-      console.log('📍 GPS güncelleme zamanı...')
-      await trackOnce()
-    }, 5000) // 5 saniye
+    console.log('✅ GPS Tracking aktif - watchPosition ile canlı güncelleme')
 
     return true
-  }, [isClient, checkPermission, trackOnce])
+  }, [isClient, checkPermission, saveLocationToDatabase])
 
   /**
    * GPS tracking'i durdur
    */
   const stopTracking = useCallback(() => {
+    if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+      watchIdRef.current = null
+    }
+
     if (trackingIntervalRef.current) {
       clearInterval(trackingIntervalRef.current)
       trackingIntervalRef.current = null
@@ -289,6 +324,10 @@ export function useGPSTracking(taskId?: string | null) {
    */
   useEffect(() => {
     return () => {
+      if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
       if (trackingIntervalRef.current) {
         clearInterval(trackingIntervalRef.current)
       }
